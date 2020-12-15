@@ -16,7 +16,7 @@ func init() {
 }
 
 type Processor interface {
-	ProcessLine(l string) (bool, error)
+	ProcessLine(l string) (done bool, err error)
 	Close() error
 }
 
