@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"../internal/day15"
 )
 
 var dbg = flag.Bool("dbg", false, "Print debug info.")
@@ -35,43 +37,11 @@ func input() ([]int, error) {
 	return r, nil
 }
 
-type game struct {
-	mem   map[int]int
-	round int
-}
-
-func newGame() *game {
-	return &game{mem: make(map[int]int)}
-}
-
-func (g *game) speak(num int) int {
-	g.round++
-	prev, ok := g.mem[num]
-	g.mem[num] = g.round
-	if !ok {
-		return 0
-	}
-	return g.round - prev
-}
-
-func part1(in []int, target int) {
-	g := newGame()
-	next := 0
-	for i := 0; i < target-1; i++ {
-		if i < len(in) {
-			next = g.speak(in[i])
-		} else {
-			next = g.speak(next)
-		}
-	}
-	fmt.Printf("Last spoken: %d\n", next)
-}
-
 func main() {
 	in, err := input()
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
 	}
-	part1(in, *rounds)
+	fmt.Printf("Last spoken: %d\n", day15.PlayGame(in, *rounds))
 }
