@@ -190,6 +190,17 @@ var sideToLeft = map[photoSide][]transOp{
 	leftRevSide:   []transOp{cw90, cw90, flip},
 }
 
+var sideToTop = map[photoSide][]transOp{
+	topSide:       []transOp{},
+	topRevSide:    []transOp{cw90, cw90, flip},
+	rightSide:     []transOp{cw90, flip},
+	rightRevSide:  []transOp{cw90},
+	bottomSide:    []transOp{flip},
+	bottomRevSide: []transOp{cw90, cw90},
+	leftSide:      []transOp{cw90, cw90, cw90},
+	leftRevSide:   []transOp{cw90, cw90, cw90, flip},
+}
+
 var transToMatrix = map[transOp][][]int{
 	cw90: [][]int{[]int{0, -1}, []int{1, 0}},
 	flip: [][]int{[]int{-1, 0}, []int{0, 1}},
@@ -307,9 +318,9 @@ func (idx *index) getNeighbor(p *photo, s photoSide) *sideRef {
 
 func (idx *index) getFirstEdge(p *photo) int {
 	for i, s := range sideOrder {
-		nextSide := sideOrder[(i+1)%len(sideOrder)]
-		if !idx.isEdge(p, s) && idx.isEdge(p, nextSide) {
-			return i
+		nexti := (i + 1) % len(sideOrder)
+		if !idx.isEdge(p, s) && idx.isEdge(p, sideOrder[nexti]) {
+			return nexti
 		}
 	}
 	return -1
@@ -321,13 +332,14 @@ func (idx *index) compose() (*photo, error) {
 	upperLeft := idx.corners[0]
 	newLeft := sideOrder[idx.getFirstEdge(upperLeft)]
 	upperLeft = upperLeft.applyAll(sideToLeft[newLeft])
+	dbg(fmt.Sprintf("Tile %d, side %s\n%s", upperLeft.id, newLeft, upperLeft))
 	w += upperLeft.w
 	for curr, currRow := upperLeft, 0; !idx.isEdge(curr, bottomSide); currRow++ {
 		if currRow != 0 {
 			next := idx.getNeighbor(composed[currRow-1][0], bottomSide)
-			curr = next.photo.applyAll(append(sideToLeft[next.side], cw90))
+			curr = next.photo.applyAll(sideToTop[next.side])
+			dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
 		}
-		fmt.Printf("\n%d", curr.id)
 		h += curr.h
 		composed = append(composed, []*photo{curr})
 		for !idx.isEdge(curr, rightSide) {
@@ -336,11 +348,16 @@ func (idx *index) compose() (*photo, error) {
 			}
 			next := idx.getNeighbor(curr, rightSide)
 			curr = next.photo.applyAll(sideToLeft[next.side])
-			fmt.Printf(" %d", curr.id)
+			dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
 			composed[currRow] = append(composed[currRow], curr)
 		}
 	}
-	fmt.Println()
+	for _, r := range composed {
+		for _, c := range r {
+			fmt.Printf("%d ", c.id)
+		}
+		fmt.Println()
+	}
 	return nil, nil
 }
 
@@ -353,6 +370,6 @@ func part1(fname string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// idx.compose()
+	idx.compose()
 	return idx.corners[0].id * idx.corners[1].id * idx.corners[2].id * idx.corners[3].id, nil
 }

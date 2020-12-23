@@ -93,7 +93,6 @@ var monsterWant = &photo{
 	}}
 
 func TestRotations(t *testing.T) {
-	// for _, sub := range []*photo{sub3x3, sub4x4, monster} {
 	testCases := []struct {
 		in, want *photo
 	}{
