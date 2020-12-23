@@ -192,13 +192,13 @@ var sideToLeft = map[photoSide][]transOp{
 
 var sideToTop = map[photoSide][]transOp{
 	topSide:       []transOp{},
-	topRevSide:    []transOp{cw90, cw90, flip},
-	rightSide:     []transOp{cw90, flip},
-	rightRevSide:  []transOp{cw90},
-	bottomSide:    []transOp{flip},
+	topRevSide:    []transOp{flip},
+	rightSide:     []transOp{cw90, cw90, cw90},
+	rightRevSide:  []transOp{cw90, cw90, cw90, flip},
+	bottomSide:    []transOp{cw90, cw90, flip},
 	bottomRevSide: []transOp{cw90, cw90},
-	leftSide:      []transOp{cw90, cw90, cw90},
-	leftRevSide:   []transOp{cw90, cw90, cw90, flip},
+	leftSide:      []transOp{cw90, flip},
+	leftRevSide:   []transOp{cw90},
 }
 
 var transToMatrix = map[transOp][][]int{
