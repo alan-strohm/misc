@@ -53,10 +53,19 @@ func (p photo) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func (p photo) paint(o *photo, ox, oy int) {
+func (p photo) paintWithBorder(o *photo, ox, oy int) {
 	for y, row := range p.pixels {
 		for x, pxl := range row {
 			o.pixels[y+oy][x+ox] = pxl
+		}
+	}
+}
+
+func (p photo) paint(o *photo, ox, oy int) {
+	dbg(fmt.Sprintf("Painting at %d, %d", ox, oy))
+	for y := 1; y < len(p.pixels)-1; y++ {
+		for x := 1; x < len(p.pixels[y])-1; x++ {
+			o.pixels[y+oy][x+ox] = p.pixels[y][x]
 		}
 	}
 }
@@ -326,21 +335,21 @@ func (idx *index) getFirstEdge(p *photo) int {
 	return -1
 }
 
-func (idx *index) compose() (*photo, error) {
+func (idx *index) compose() *photo {
 	composed := make([][]*photo, 0)
 	w, h := 0, 0
 	upperLeft := idx.corners[0]
 	newLeft := sideOrder[idx.getFirstEdge(upperLeft)]
 	upperLeft = upperLeft.applyAll(sideToLeft[newLeft])
-	dbg(fmt.Sprintf("Tile %d, side %s\n%s", upperLeft.id, newLeft, upperLeft))
-	w += upperLeft.w
+	// dbg(fmt.Sprintf("Tile %d, side %s\n%s", upperLeft.id, newLeft, upperLeft))
+	w += upperLeft.w - 1
 	for curr, currRow := upperLeft, 0; !idx.isEdge(curr, bottomSide); currRow++ {
 		if currRow != 0 {
 			next := idx.getNeighbor(composed[currRow-1][0], bottomSide)
 			curr = next.photo.applyAll(sideToTop[next.side])
-			dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
+			// dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
 		}
-		h += curr.h
+		h += curr.h - 2
 		composed = append(composed, []*photo{curr})
 		for !idx.isEdge(curr, rightSide) {
 			if currRow == 0 {
@@ -348,28 +357,85 @@ func (idx *index) compose() (*photo, error) {
 			}
 			next := idx.getNeighbor(curr, rightSide)
 			curr = next.photo.applyAll(sideToLeft[next.side])
-			dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
+			// dbg(fmt.Sprintf("Tile %d, side %s\n%s", curr.id, next.side, curr))
 			composed[currRow] = append(composed[currRow], curr)
 		}
 	}
+	canvas := blankPhoto(w+1, h+1)
+	currY := 0
 	for _, r := range composed {
-		for _, c := range r {
-			fmt.Printf("%d ", c.id)
+		maxH := 0
+		currX := 0
+		for _, p := range r {
+			if p.h-2 > maxH {
+				maxH = p.h - 2
+			}
+			p.paint(canvas, currX, currY)
+			currX += p.w - 2
+			fmt.Printf("%d ", p.id)
 		}
+		currY += maxH
 		fmt.Println()
 	}
-	return nil, nil
+	dbg(canvas.String())
+	return canvas
 }
 
-func part1(fname string) (int, error) {
+func (p *photo) matches(o *photo, x, y int) bool {
+	for oy, row := range o.pixels {
+		for ox, pxl := range row {
+			px, py := x+ox, y+oy
+			if py >= len(p.pixels) || px >= len(p.pixels[py]) {
+				return false
+			}
+			if pxl == '#' && p.pixels[py][px] != '#' {
+				return false
+			}
+		}
+	}
+	for oy, row := range o.pixels {
+		for ox, pxl := range row {
+			px, py := x+ox, y+oy
+			if pxl == '#' {
+				p.pixels[py][px] = 'O'
+			}
+		}
+	}
+	return true
+}
+
+func findMonster(composed *photo) int {
+	monsters := make([]*photo, len(allSides))
+	for i, s := range allSides {
+		monsters[i] = monster.applyAll(sideToLeft[s])
+	}
+	numHashes := 0
+	for y, row := range composed.pixels {
+		for x, pxl := range row {
+			for _, m := range monsters {
+				if composed.matches(m, x, y) {
+					dbg(fmt.Sprintf("monster found at %d, %d", x, y))
+				}
+			}
+			if pxl == '#' {
+				numHashes++
+			}
+		}
+	}
+	dbg(composed.String())
+	return numHashes
+}
+
+func run(fname string) (part1 int, part2 int, err error) {
 	photos, err := readPhotos(fname)
 	if err != nil {
-		return 0, err
+		return
 	}
 	idx, err := newIndex(photos)
 	if err != nil {
-		return 0, err
+		return
 	}
-	idx.compose()
-	return idx.corners[0].id * idx.corners[1].id * idx.corners[2].id * idx.corners[3].id, nil
+	part1 = idx.corners[0].id * idx.corners[1].id * idx.corners[2].id * idx.corners[3].id
+	composed := idx.compose()
+	return part1, findMonster(composed), nil
 }

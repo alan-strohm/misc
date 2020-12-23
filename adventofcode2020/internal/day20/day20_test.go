@@ -4,21 +4,25 @@ import (
 	"testing"
 )
 
-func TestPart1(t *testing.T) {
+func TestRun(t *testing.T) {
 	testCases := []struct {
-		fname string
-		want  int
+		fname     string
+		wantPart1 int
+		wantPart2 int
 	}{
-		// {fname: "./ex1.txt", want: 20899048083289},
-		{fname: "./input.txt", want: 5966506063747},
+		{fname: "./ex1.txt", wantPart1: 20899048083289, wantPart2: 273},
+		{fname: "./input.txt", wantPart1: 5966506063747, wantPart2: 1714},
 	}
 	for _, tc := range testCases {
-		n, err := part1(tc.fname)
+		part1, part2, err := run(tc.fname)
 		if err != nil {
 			t.Errorf("failed: %s", err)
 		}
-		if n != tc.want {
-			t.Errorf("got %d, want %d", n, tc.want)
+		if part1 != tc.wantPart1 {
+			t.Errorf("part1 got %d, want %d", part1, tc.wantPart1)
+		}
+		if part2 != tc.wantPart2 {
+			t.Errorf("part2 got %d, want %d", part2, tc.wantPart2)
 		}
 	}
 }
@@ -127,10 +131,10 @@ func TestSideToLeft(t *testing.T) {
 		}
 		canvas := blankPhoto(4*dim+3, 2*dim+1)
 		for i, s := range []photoSide{leftSide, leftRevSide, rightSide, rightRevSide} {
-			sub.applyAll(sideToLeft[s]).paint(canvas, dim*i+i, 0)
+			sub.applyAll(sideToLeft[s]).paintWithBorder(canvas, dim*i+i, 0)
 		}
 		for i, s := range []photoSide{bottomSide, bottomRevSide, topSide, topRevSide} {
-			sub.applyAll(sideToLeft[s]).paint(canvas, dim*i+i, dim+1)
+			sub.applyAll(sideToLeft[s]).paintWithBorder(canvas, dim*i+i, dim+1)
 		}
 		if canvas.String() != tc.want.String() {
 			t.Errorf("Got:\n%s\nWant:\n%s", canvas, tc.want)
@@ -152,10 +156,10 @@ func TestSideToTop(t *testing.T) {
 		}
 		canvas := blankPhoto(4*dim+3, 2*dim+1)
 		for i, s := range []photoSide{topSide, leftSide, bottomSide, rightSide} {
-			sub.applyAll(sideToTop[s]).paint(canvas, dim*i+i, 0)
+			sub.applyAll(sideToTop[s]).paintWithBorder(canvas, dim*i+i, 0)
 		}
 		for i, s := range []photoSide{topRevSide, leftRevSide, bottomRevSide, rightRevSide} {
-			sub.applyAll(sideToTop[s]).paint(canvas, dim*i+i, dim+1)
+			sub.applyAll(sideToTop[s]).paintWithBorder(canvas, dim*i+i, dim+1)
 		}
 		if canvas.String() != tc.want.String() {
 			t.Errorf("Got:\n%s\nWant:\n%s", canvas, tc.want)
