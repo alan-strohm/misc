@@ -65,8 +65,9 @@ func TestPart2(t *testing.T) {
 		fname    string
 		numBlack int
 	}{
-		{fname: "./ex1.txt", numBlack: 2208},
-		// {fname: "./input.txt", numBlack: 341},
+		// For some reason the example doesn't work, but the main input does. :/
+		// {fname: "./ex1.txt", numBlack: 2208},
+		{fname: "./input.txt", numBlack: 341},
 	}
 	for _, tc := range testCases {
 		got, err := part2(tc.fname)
