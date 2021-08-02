@@ -31,7 +31,7 @@ func runPrompt() error {
 			break
 		}
 		if err := run(scanner.Text()); err != nil {
-			return err
+			fmt.Printf("error: %s\n", err)
 		}
 	}
 	return scanner.Err()
@@ -48,7 +48,7 @@ func main() {
 		err = runPrompt()
 	}
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		fmt.Printf("error: %s\n", err)
 		os.Exit(1)
 	}
 }
