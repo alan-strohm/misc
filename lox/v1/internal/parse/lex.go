@@ -8,6 +8,7 @@ import (
 
 type item struct {
 	typ  itemType // The type of this item
+	pos  Pos      // The starting position, in bytes, of this item in the input string.
 	val  string   // The value of this item.
 	line int      // The line number at the start of this item.
 }
@@ -77,8 +78,6 @@ const (
 	itemWhile   // while keyword
 )
 
-type Pos int
-
 // stateFn represents the state of the scanner as a function that returns the next state.
 type stateFn func(*lexer) stateFn
 
@@ -133,14 +132,14 @@ func (l *lexer) ignore() {
 
 // emit passes an item back to the client
 func (l *lexer) emit(t itemType) {
-	l.out = item{t, l.input[l.start:l.pos], l.line}
+	l.out = item{t, l.start, l.input[l.start:l.pos], l.line}
 	l.start = l.pos
 	l.startLine = l.line
 }
 
 // emitError passes an error item back to the client.
 func (l *lexer) emitError(format string, args ...interface{}) {
-	l.out = item{itemError, fmt.Sprintf(format, args...), l.line}
+	l.out = item{itemError, l.start, fmt.Sprintf(format, args...), l.line}
 	l.start = l.pos
 	l.startLine = l.line
 }
