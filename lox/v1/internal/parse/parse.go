@@ -91,26 +91,26 @@ func exprAcceptVisitor(e Expr, v interface{}) {
 		n, ok := v.(BinaryExprVisitor)
 		if ok {
 			n.VisitBinaryExpr(t)
+			return
 		}
-		return
 	case *UnaryExpr:
 		n, ok := v.(UnaryExprVisitor)
 		if ok {
 			n.VisitUnaryExpr(t)
+			return
 		}
-		return
 	case *BasicLit:
 		n, ok := v.(BasicLitVisitor)
 		if ok {
 			n.VisitBasicLit(t)
+			return
 		}
-		return
 	case *ParenExpr:
 		n, ok := v.(ParenExprVisitor)
 		if ok {
 			n.VisitParenExpr(t)
+			return
 		}
-		return
 	}
 	v.(PartialExprVisitor).VisitExpr(e)
 }
