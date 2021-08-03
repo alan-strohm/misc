@@ -1,17 +1,19 @@
 package parse
 
-import "fmt"
+import (
+	"fmt"
 
-type Pos int
+	"github.com/alan-strohm/misc/lox/v1/internal/token"
+)
 
 type (
 	Node interface {
-		Pos() Pos // position of the first character belonging to the node
-		End() Pos // position of the first character immediately after the node.
+		Pos() token.Pos // position of the first character belonging to the node
+		End() token.Pos // position of the first character immediately after the node.
 	}
 
 	BadExpr struct {
-		From, To Pos
+		From, To token.Pos
 	}
 
 	Expr interface {
@@ -20,29 +22,29 @@ type (
 
 	// A BinaryExpr node represents a binary expression.
 	BinaryExpr struct {
-		X  Expr // left operand
-		Op Item // operator
-		Y  Expr // right operand
+		X  Expr        // left operand
+		Op token.Token // operator
+		Y  Expr        // right operand
 	}
 
 	// A UnaryExpr node represents a unary expression.
 	UnaryExpr struct {
-		Op Item // operator
-		X  Expr // operand
+		Op token.Token // operator
+		X  Expr        // operand
 	}
 
 	// A BasicLit node represents a literal of basic type.
 	//
-	// Note that for itemString items, the literal is stored with its quotes.
+	// Note that for token.STRING tokens, the literal is stored with its quotes.
 	BasicLit struct {
-		Value Item // The value
+		Value token.Token // The value
 	}
 
 	// A ParenExpr node represents a parenthesized expression.
 	ParenExpr struct {
-		Lparen Pos // position of "("
+		Lparen token.Pos // position of "("
 		X      Expr
-		Rparen Pos // position of ")"
+		Rparen token.Pos // position of ")"
 	}
 
 	// An expression visitor visits each piece of an expression.
@@ -67,17 +69,17 @@ func ExprAcceptVisitor(e Expr, v ExprVisitor) {
 	}
 }
 
-func (x *BadExpr) Pos() Pos    { return x.From }
-func (x *BasicLit) Pos() Pos   { return x.Value.Pos }
-func (x *BinaryExpr) Pos() Pos { return x.X.Pos() }
-func (x *ParenExpr) Pos() Pos  { return x.Lparen }
-func (x *UnaryExpr) Pos() Pos  { return x.Op.Pos }
+func (x *BadExpr) Pos() token.Pos    { return x.From }
+func (x *BasicLit) Pos() token.Pos   { return x.Value.Pos }
+func (x *BinaryExpr) Pos() token.Pos { return x.X.Pos() }
+func (x *ParenExpr) Pos() token.Pos  { return x.Lparen }
+func (x *UnaryExpr) Pos() token.Pos  { return x.Op.Pos }
 
-func (x *BadExpr) End() Pos    { return x.To }
-func (x *BasicLit) End() Pos   { return x.Value.Pos + Pos(len(x.Value.Val)) }
-func (x *BinaryExpr) End() Pos { return x.Y.End() }
-func (x *ParenExpr) End() Pos  { return x.Rparen }
-func (x *UnaryExpr) End() Pos  { return x.X.End() }
+func (x *BadExpr) End() token.Pos    { return x.To }
+func (x *BasicLit) End() token.Pos   { return x.Value.Pos + token.Pos(len(x.Value.Val)) }
+func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
+func (x *ParenExpr) End() token.Pos  { return x.Rparen }
+func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
 
 type parser struct {
 	l       *lexer
@@ -117,33 +119,33 @@ func (p *parser) next() {
 	p.l.scan()
 }
 
-func (p *parser) cur() Item {
-	return p.l.item()
+func (p *parser) cur() token.Token {
+	return p.l.token()
 }
 
-func (p *parser) error(pos Pos, msg string) {
+func (p *parser) error(pos token.Pos, msg string) {
 	p.errors = append(p.errors, fmt.Errorf("%d: %s", pos, msg))
 }
 
-func (p *parser) errorExpected(pos Pos, msg string) {
+func (p *parser) errorExpected(pos token.Pos, msg string) {
 	msg = "expected " + msg
 	if pos == p.cur().Pos {
-		msg += fmt.Sprintf(", found '%#v'", p.cur())
+		msg += fmt.Sprintf(", found '%s'", p.cur())
 	}
 	p.error(pos, msg)
 }
 
-func (p *parser) expect(typ ItemType) Pos {
+func (p *parser) expect(t token.Type) token.Pos {
 	pos := p.cur().Pos
-	if p.cur().Type != typ {
-		p.errorExpected(pos, fmt.Sprintf("'%v'", typ))
+	if p.cur().Type != t {
+		p.errorExpected(pos, fmt.Sprintf("'%s'", t))
 	}
 	p.next()
 	return pos
 }
 
-func (p *parser) advance(to map[ItemType]bool) {
-	for ; p.cur().Type != ItemEOF; p.next() {
+func (p *parser) advance(to map[token.Type]bool) {
+	for ; p.cur().Type != token.EOF; p.next() {
 		if to[p.cur().Type] {
 			return
 		}
@@ -155,17 +157,17 @@ func (p *parser) parseOperand() Expr {
 		defer un(trace(p, "Operand"))
 	}
 	switch p.cur().Type {
-	case ItemNumber, ItemString, ItemFalse, ItemTrue, ItemNil:
+	case token.NUMBER, token.STRING, token.FALSE, token.TRUE, token.NIL:
 		x := &BasicLit{Value: p.cur()}
 		p.next()
 		return x
-	case ItemLeftParen:
+	case token.LPAREN:
 		lparen := p.cur().Pos
 		p.next()
 		p.exprLev++
 		x := p.parseExpr()
 		p.exprLev--
-		rparen := p.expect(ItemRightParen)
+		rparen := p.expect(token.RPAREN)
 		return &ParenExpr{Lparen: lparen, X: x, Rparen: rparen}
 	}
 
@@ -188,7 +190,7 @@ func (p *parser) parseUnaryExpr() Expr {
 		defer un(trace(p, "UnaryExpr"))
 	}
 	switch p.cur().Type {
-	case ItemMinus, ItemBang:
+	case token.SUB, token.NOT:
 		op := p.cur()
 		p.next()
 		x := p.parseUnaryExpr()
@@ -204,11 +206,11 @@ func (p *parser) parseBinaryExpr(prec1 int) Expr {
 	x := p.parseUnaryExpr()
 	for {
 		op := p.cur()
-		if op.Type.precedence() < prec1 {
+		if op.Type.Precedence() < prec1 {
 			return x
 		}
 		p.expect(op.Type)
-		y := p.parseBinaryExpr(op.Type.precedence() + 1)
+		y := p.parseBinaryExpr(op.Type.Precedence() + 1)
 		x = &BinaryExpr{X: x, Op: op, Y: y}
 	}
 }
@@ -217,7 +219,7 @@ func (p *parser) parseExpr() Expr {
 	if p.trace {
 		defer un(trace(p, "Expr"))
 	}
-	return p.parseBinaryExpr(lowestPrec + 1)
+	return p.parseBinaryExpr(token.LowestPrec + 1)
 }
 
 func (p *parser) Parse() (Expr, error) {
@@ -237,11 +239,11 @@ func ParseExpr(x string) (Expr, error) {
 	return p.Parse()
 }
 
-var stmtStart = map[ItemType]bool{
-	ItemFor:    true,
-	ItemIf:     true,
-	ItemPrint:  true,
-	ItemReturn: true,
-	ItemVar:    true,
-	ItemWhile:  true,
+var stmtStart = map[token.Type]bool{
+	token.FOR:    true,
+	token.IF:     true,
+	token.PRINT:  true,
+	token.RETURN: true,
+	token.VAR:    true,
+	token.WHILE:  true,
 }

@@ -3,97 +3,99 @@ package parse
 import (
 	"fmt"
 	"testing"
+
+	"github.com/alan-strohm/misc/lox/v1/internal/token"
 )
 
 func TestLex(t *testing.T) {
 	cases := []struct {
 		in  string
-		exp []Item
+		exp []token.Token
 	}{
-		{"", []Item{{ItemEOF, 0, "", 1}}},
-		{"\n", []Item{{ItemEOF, 1, "", 2}}},
-		{" \n\r\t", []Item{{ItemEOF, 4, "", 2}}},
-		{"(){};,+-*!===<=>=!=<>/.", []Item{
-			{ItemLeftParen, 0, "(", 1},
-			{ItemRightParen, 1, ")", 1},
-			{ItemLeftBrace, 2, "{", 1},
-			{ItemRightBrace, 3, "}", 1},
-			{ItemSemicolon, 4, ";", 1},
-			{ItemComma, 5, ",", 1},
-			{ItemPlus, 6, "+", 1},
-			{ItemMinus, 7, "-", 1},
-			{ItemStar, 8, "*", 1},
-			{ItemBangEqual, 9, "!=", 1},
-			{ItemEqualEqual, 11, "==", 1},
-			{ItemLessEqual, 13, "<=", 1},
-			{ItemGreaterEqual, 15, ">=", 1},
-			{ItemBangEqual, 17, "!=", 1},
-			{ItemLess, 19, "<", 1},
-			{ItemGreater, 20, ">", 1},
-			{ItemSlash, 21, "/", 1},
-			{ItemDot, 22, ".", 1},
-			{ItemEOF, 23, "", 1}}},
-		{"123", []Item{
-			{ItemNumber, 0, "123", 1},
-			{ItemEOF, 3, "", 1}}},
-		{"123.456", []Item{
-			{ItemNumber, 0, "123.456", 1},
-			{ItemEOF, 7, "", 1}}},
-		{".456", []Item{
-			{ItemDot, 0, ".", 1},
-			{ItemNumber, 1, "456", 1},
-			{ItemEOF, 4, "", 1}}},
-		{"123.", []Item{
-			{ItemError, 0, "number with trailing .", 1},
-			{ItemEOF, 4, "", 1}}},
-		{`""`, []Item{
-			{ItemString, 0, `""`, 1},
-			{ItemEOF, 2, "", 1}}},
-		{`"string"`, []Item{
-			{ItemString, 0, `"string"`, 1},
-			{ItemEOF, 8, "", 1}}},
-		{"//foo\n123", []Item{
-			{ItemNumber, 6, "123", 2},
-			{ItemEOF, 9, "", 2}}},
-		{"andy formless fo _ _123 _abc ab123\nabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", []Item{
-			{ItemIdentifier, 0, "andy", 1},
-			{ItemIdentifier, 5, "formless", 1},
-			{ItemIdentifier, 14, "fo", 1},
-			{ItemIdentifier, 17, "_", 1},
-			{ItemIdentifier, 19, "_123", 1},
-			{ItemIdentifier, 24, "_abc", 1},
-			{ItemIdentifier, 29, "ab123", 1},
-			{ItemIdentifier, 35, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", 2},
-			{ItemEOF, 35 + 26*2 + 10 + 1, "", 2}}},
-		{"and class else false for fun if nil or return super this true var while", []Item{
-			{ItemAnd, 0, "and", 1},
-			{ItemClass, 4, "class", 1},
-			{ItemElse, 10, "else", 1},
-			{ItemFalse, 15, "false", 1},
-			{ItemFor, 21, "for", 1},
-			{ItemFun, 25, "fun", 1},
-			{ItemIf, 29, "if", 1},
-			{ItemNil, 32, "nil", 1},
-			{ItemOr, 36, "or", 1},
-			{ItemReturn, 39, "return", 1},
-			{ItemSuper, 46, "super", 1},
-			{ItemThis, 52, "this", 1},
-			{ItemTrue, 57, "true", 1},
-			{ItemVar, 62, "var", 1},
-			{ItemWhile, 66, "while", 1},
-			{ItemEOF, 71, "", 1}}},
+		{"", []token.Token{{token.EOF, 0, ""}}},
+		{"\n", []token.Token{{token.EOF, 1, ""}}},
+		{" \n\r\t", []token.Token{{token.EOF, 4, ""}}},
+		{"(){};,+-*!===<=>=!=<>/.", []token.Token{
+			{token.LPAREN, 0, "("},
+			{token.RPAREN, 1, ")"},
+			{token.LBRACE, 2, "{"},
+			{token.RBRACE, 3, "}"},
+			{token.SEMICOLON, 4, ";"},
+			{token.COMMA, 5, ","},
+			{token.ADD, 6, "+"},
+			{token.SUB, 7, "-"},
+			{token.MUL, 8, "*"},
+			{token.NEQ, 9, "!="},
+			{token.EQL, 11, "=="},
+			{token.LEQ, 13, "<="},
+			{token.GEQ, 15, ">="},
+			{token.NEQ, 17, "!="},
+			{token.LSS, 19, "<"},
+			{token.GTR, 20, ">"},
+			{token.QUO, 21, "/"},
+			{token.PERIOD, 22, "."},
+			{token.EOF, 23, ""}}},
+		{"123", []token.Token{
+			{token.NUMBER, 0, "123"},
+			{token.EOF, 3, ""}}},
+		{"123.456", []token.Token{
+			{token.NUMBER, 0, "123.456"},
+			{token.EOF, 7, ""}}},
+		{".456", []token.Token{
+			{token.PERIOD, 0, "."},
+			{token.NUMBER, 1, "456"},
+			{token.EOF, 4, ""}}},
+		{"123.", []token.Token{
+			{token.ILLEGAL, 0, "number with trailing ."},
+			{token.EOF, 4, ""}}},
+		{`""`, []token.Token{
+			{token.STRING, 0, `""`},
+			{token.EOF, 2, ""}}},
+		{`"string"`, []token.Token{
+			{token.STRING, 0, `"string"`},
+			{token.EOF, 8, ""}}},
+		{"//foo\n123", []token.Token{
+			{token.NUMBER, 6, "123"},
+			{token.EOF, 9, ""}}},
+		{"andy formless fo _ _123 _abc ab123\nabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", []token.Token{
+			{token.IDENT, 0, "andy"},
+			{token.IDENT, 5, "formless"},
+			{token.IDENT, 14, "fo"},
+			{token.IDENT, 17, "_"},
+			{token.IDENT, 19, "_123"},
+			{token.IDENT, 24, "_abc"},
+			{token.IDENT, 29, "ab123"},
+			{token.IDENT, 35, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"},
+			{token.EOF, 35 + 26*2 + 10 + 1, ""}}},
+		{"and class else false for fun if nil or return super this true var while", []token.Token{
+			{token.AND, 0, "and"},
+			{token.CLASS, 4, "class"},
+			{token.ELSE, 10, "else"},
+			{token.FALSE, 15, "false"},
+			{token.FOR, 21, "for"},
+			{token.FUN, 25, "fun"},
+			{token.IF, 29, "if"},
+			{token.NIL, 32, "nil"},
+			{token.OR, 36, "or"},
+			{token.RETURN, 39, "return"},
+			{token.SUPER, 46, "super"},
+			{token.THIS, 52, "this"},
+			{token.TRUE, 57, "true"},
+			{token.VAR, 62, "var"},
+			{token.WHILE, 66, "while"},
+			{token.EOF, 71, ""}}},
 	}
 	for _, tc := range cases {
 		l := lex(tc.in)
-		out := make([]Item, 0, len(tc.exp))
+		out := make([]token.Token, 0, len(tc.exp))
 		for l.scan() {
-			out = append(out, l.item())
+			out = append(out, l.token())
 		}
 		if len(out) != len(tc.exp) {
 			t.Errorf("len(lex(%s)) = %d, want %d", tc.in, len(out), len(tc.exp))
 		}
-		for i, outItem := range out {
-			outStr := fmt.Sprintf("%#v", outItem)
+		for i, outToken := range out {
+			outStr := fmt.Sprintf("%#v", outToken)
 			expStr := fmt.Sprintf("%#v", tc.exp[i])
 			if outStr != expStr {
 				t.Errorf("lex(%s)[%d] =\n%s; want\n%s", tc.in, i, outStr, expStr)

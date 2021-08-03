@@ -4,106 +4,18 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
-)
 
-type Item struct {
-	Type ItemType // The type of this item
-	Pos  Pos      // The starting position, in bytes, of this item in the input string.
-	Val  string   // The value of this item.
-	Line int      // The line number at the start of this item.
-}
-
-func (i Item) isKeyword() bool {
-	return i.Type > ItemKeyword
-}
-
-func (i Item) String() string {
-	switch {
-	case i.Type == ItemEOF:
-		return "EOF"
-	case i.Type == ItemError:
-		return i.Val
-	case i.isKeyword():
-		return fmt.Sprintf("<%s>", i.Val)
-	case len(i.Val) > 10:
-		return fmt.Sprintf("%.10q...", i.Val)
-	}
-	return fmt.Sprintf("%q", i.Val)
-}
-
-const (
-	lowestPrec  = 0
-	unaryPrec   = 6
-	highestPrec = 7
-)
-
-func (i ItemType) precedence() int {
-	switch i {
-	case ItemEqualEqual, ItemBangEqual, ItemGreater, ItemLess, ItemGreaterEqual, ItemLessEqual:
-		return 3
-	case ItemPlus, ItemMinus:
-		return 4
-	case ItemStar, ItemSlash:
-		return 5
-	}
-	return lowestPrec
-}
-
-type ItemType int
-
-const (
-	ItemError ItemType = iota // error occurred; value is text of error
-	ItemEOF
-	ItemLeftParen
-	ItemRightParen
-	ItemLeftBrace
-	ItemRightBrace
-	ItemComma
-	ItemDot
-	ItemMinus
-	ItemPlus
-	ItemSemicolon
-	ItemSlash
-	ItemStar
-	ItemBang
-	ItemBangEqual
-	ItemEqual
-	ItemEqualEqual
-	ItemGreater
-	ItemGreaterEqual
-	ItemLess
-	ItemLessEqual
-	ItemIdentifier
-	ItemString // string literal (includes quotes)
-	ItemNumber // number literal
-	// Keywords appear after all the rest
-	ItemKeyword // used only to delimit the keywords
-	ItemAnd     // and keyword
-	ItemClass   // class keyword
-	ItemElse    // else keyword
-	ItemFalse   // false literal
-	ItemFun     // fun keyword
-	ItemFor     // for keyword
-	ItemIf      // if keyword
-	ItemNil     // nil keyword
-	ItemOr      // or keyword
-	ItemPrint   // print keyword
-	ItemReturn  // return keyword
-	ItemSuper   // super keyword
-	ItemThis    // this keyword
-	ItemTrue    // true literal
-	ItemVar     // var keyword
-	ItemWhile   // while keyword
+	"github.com/alan-strohm/misc/lox/v1/internal/token"
 )
 
 type lexer struct {
-	input     string // the string being scanned
-	pos       Pos    // current position in the input
-	start     Pos    // start position of this item
-	width     Pos    // width of the last rune read from input
-	out       Item   // most recent item
-	line      int    // 1+number of newlines seen
-	startLine int    // start line of this item
+	input     string      // the string being scanned
+	pos       token.Pos   // current position in the input
+	start     token.Pos   // start position of this token
+	width     token.Pos   // width of the last rune read from input
+	out       token.Token // most recent token
+	line      int         // 1+number of newlines seen
+	startLine int         // start line of this token
 }
 
 const eof = -1
@@ -115,7 +27,7 @@ func (l *lexer) next() rune {
 		return eof
 	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
-	l.width = Pos(w)
+	l.width = token.Pos(w)
 	l.pos += l.width
 	if r == '\n' {
 		l.line++
@@ -145,16 +57,16 @@ func (l *lexer) ignore() {
 	l.startLine = l.line
 }
 
-// emit passes an item back to the client
-func (l *lexer) emit(t ItemType) {
-	l.out = Item{t, l.start, l.input[l.start:l.pos], l.line}
+// emit passes an token back to the client
+func (l *lexer) emit(t token.Type) {
+	l.out = token.Token{t, l.start, l.input[l.start:l.pos]}
 	l.start = l.pos
 	l.startLine = l.line
 }
 
-// emitError passes an error item back to the client.
+// emitError passes an illegal token back to the client.
 func (l *lexer) emitError(format string, args ...interface{}) {
-	l.out = Item{ItemError, l.start, fmt.Sprintf(format, args...), l.line}
+	l.out = token.Token{token.ILLEGAL, l.start, fmt.Sprintf(format, args...)}
 	l.start = l.pos
 	l.startLine = l.line
 }
@@ -175,48 +87,48 @@ func (l *lexer) acceptRun(valid string) {
 	l.backup()
 }
 
-// item  returns the next item from the input.
+// token returns the next token from the input.
 // Called by the parser.
-func (l *lexer) item() Item {
+func (l *lexer) token() token.Token {
 	return l.out
 }
 
-var singleCharItems = map[rune]ItemType{
-	'(': ItemLeftParen, ')': ItemRightParen,
-	'{': ItemLeftBrace, '}': ItemRightBrace,
-	',': ItemComma, '.': ItemDot,
-	'-': ItemMinus, '+': ItemPlus,
-	';': ItemSemicolon, '*': ItemStar,
-	eof: ItemEOF,
+var singleCharTokens = map[rune]token.Type{
+	'(': token.LPAREN, ')': token.RPAREN,
+	'{': token.LBRACE, '}': token.RBRACE,
+	',': token.COMMA, '.': token.PERIOD,
+	'-': token.SUB, '+': token.ADD,
+	';': token.SEMICOLON, '*': token.MUL,
+	eof: token.EOF,
 }
 
 func (l *lexer) scan() bool {
-	if l.out.Type == ItemEOF {
+	if l.out.Type == token.EOF {
 		return false
 	}
 	l.acceptRun(" \r\t\n")
 	l.ignore()
 	switch r := l.next(); {
 	case r == eof:
-		l.emit(ItemEOF)
-	case singleCharItems[r] != ItemError:
-		l.emit(singleCharItems[r])
+		l.emit(token.EOF)
+	case singleCharTokens[r] != token.ILLEGAL:
+		l.emit(singleCharTokens[r])
 	case r == '!' && l.accept("="):
-		l.emit(ItemBangEqual)
+		l.emit(token.NEQ)
 	case r == '!':
-		l.emit(ItemBang)
+		l.emit(token.NOT)
 	case r == '=' && l.accept("="):
-		l.emit(ItemEqualEqual)
+		l.emit(token.EQL)
 	case r == '=':
-		l.emit(ItemEqual)
+		l.emit(token.ASSIGN)
 	case r == '<' && l.accept("="):
-		l.emit(ItemLessEqual)
+		l.emit(token.LEQ)
 	case r == '<':
-		l.emit(ItemLess)
+		l.emit(token.LSS)
 	case r == '>' && l.accept("="):
-		l.emit(ItemGreaterEqual)
+		l.emit(token.GEQ)
 	case r == '>':
-		l.emit(ItemGreater)
+		l.emit(token.GTR)
 	case r == '/':
 		if l.accept("/") {
 			for r := l.next(); r != '\n' && r != eof; r = l.next() {
@@ -225,7 +137,7 @@ func (l *lexer) scan() bool {
 			l.ignore()
 			return l.scan()
 		} else {
-			l.emit(ItemSlash)
+			l.emit(token.QUO)
 		}
 	case r == '"':
 		l.lexString()
@@ -234,7 +146,7 @@ func (l *lexer) scan() bool {
 	case isAlpha(r):
 		l.lexIdentifier()
 	default:
-		l.emitError("unexpected character: %v", r)
+		l.emitError("unexpected character: %#U", r)
 	}
 	return true
 }
@@ -250,7 +162,7 @@ func (l *lexer) lexString() {
 		l.backup()
 		l.emitError("unterminated string")
 	} else {
-		l.emit(ItemString)
+		l.emit(token.STRING)
 	}
 }
 
@@ -265,7 +177,7 @@ func (l *lexer) lexNumber() {
 		l.emitError("number with trailing .")
 	} else {
 		l.acceptRun(digits)
-		l.emit(ItemNumber)
+		l.emit(token.NUMBER)
 	}
 }
 
@@ -279,36 +191,13 @@ func isAlphanumeric(r rune) bool {
 	return isAlpha(r) || isDigit(r)
 }
 
-var key = map[string]ItemType{
-	"and":    ItemAnd,
-	"class":  ItemClass,
-	"else":   ItemElse,
-	"false":  ItemFalse,
-	"for":    ItemFor,
-	"fun":    ItemFun,
-	"if":     ItemIf,
-	"nil":    ItemNil,
-	"or":     ItemOr,
-	"print":  ItemPrint,
-	"return": ItemReturn,
-	"super":  ItemSuper,
-	"this":   ItemThis,
-	"true":   ItemTrue,
-	"var":    ItemVar,
-	"while":  ItemWhile,
-}
-
 func (l *lexer) lexIdentifier() {
 	for isAlphanumeric(l.next()) {
 		// absorb
 	}
 	l.backup()
 	word := l.input[l.start:l.pos]
-	typ, ok := key[word]
-	if !ok {
-		typ = ItemIdentifier
-	}
-	l.emit(typ)
+	l.emit(token.Lookup(word))
 }
 
 // lex creates a new scanner for the input string.
