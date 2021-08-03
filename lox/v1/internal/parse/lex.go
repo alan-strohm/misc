@@ -6,87 +6,102 @@ import (
 	"unicode/utf8"
 )
 
-type item struct {
-	typ  itemType // The type of this item
-	pos  Pos      // The starting position, in bytes, of this item in the input string.
-	val  string   // The value of this item.
-	line int      // The line number at the start of this item.
+type Item struct {
+	Type ItemType // The type of this item
+	Pos  Pos      // The starting position, in bytes, of this item in the input string.
+	Val  string   // The value of this item.
+	Line int      // The line number at the start of this item.
 }
 
-func (i item) isKeyword() bool {
-	return i.typ > itemKeyword
+func (i Item) isKeyword() bool {
+	return i.Type > ItemKeyword
 }
 
-func (i item) String() string {
+func (i Item) String() string {
 	switch {
-	case i.typ == itemEOF:
+	case i.Type == ItemEOF:
 		return "EOF"
-	case i.typ == itemError:
-		return i.val
+	case i.Type == ItemError:
+		return i.Val
 	case i.isKeyword():
-		return fmt.Sprintf("<%s>", i.val)
-	case len(i.val) > 10:
-		return fmt.Sprintf("%.10q...", i.val)
+		return fmt.Sprintf("<%s>", i.Val)
+	case len(i.Val) > 10:
+		return fmt.Sprintf("%.10q...", i.Val)
 	}
-	return fmt.Sprintf("%q", i.val)
+	return fmt.Sprintf("%q", i.Val)
 }
-
-type itemType int
 
 const (
-	itemError itemType = iota // error occurred; value is text of error
-	itemEOF
-	itemLeftParen
-	itemRightParen
-	itemLeftBrace
-	itemRightBrace
-	itemComma
-	itemDot
-	itemMinus
-	itemPlus
-	itemSemicolon
-	itemSlash
-	itemStar
-	itemBang
-	itemBangEqual
-	itemEqual
-	itemEqualEqual
-	itemGreater
-	itemGreaterEqual
-	itemLess
-	itemLessEqual
-	itemIdentifier
-	itemString // string literal (includes quotes)
-	itemNumber // number literal
-	// Keywords appear after all the rest
-	itemKeyword // used only to delimit the keywords
-	itemAnd     // and keyword
-	itemClass   // class keyword
-	itemElse    // else keyword
-	itemFalse   // false literal
-	itemFun     // fun keyword
-	itemFor     // for keyword
-	itemIf      // if keyword
-	itemNil     // nil keyword
-	itemOr      // or keyword
-	itemPrint   // print keyword
-	itemReturn  // return keyword
-	itemSuper   // super keyword
-	itemThis    // this keyword
-	itemTrue    // true literal
-	itemVar     // var keyword
-	itemWhile   // while keyword
+	lowestPrec  = 0
+	unaryPrec   = 6
+	highestPrec = 7
 )
 
-// stateFn represents the state of the scanner as a function that returns the next state.
-type stateFn func(*lexer) stateFn
+func (i ItemType) precedence() int {
+	switch i {
+	case ItemEqualEqual, ItemBangEqual, ItemGreater, ItemLess, ItemGreaterEqual, ItemLessEqual:
+		return 3
+	case ItemPlus, ItemMinus:
+		return 4
+	case ItemStar, ItemSlash:
+		return 5
+	}
+	return lowestPrec
+}
+
+type ItemType int
+
+const (
+	ItemError ItemType = iota // error occurred; value is text of error
+	ItemEOF
+	ItemLeftParen
+	ItemRightParen
+	ItemLeftBrace
+	ItemRightBrace
+	ItemComma
+	ItemDot
+	ItemMinus
+	ItemPlus
+	ItemSemicolon
+	ItemSlash
+	ItemStar
+	ItemBang
+	ItemBangEqual
+	ItemEqual
+	ItemEqualEqual
+	ItemGreater
+	ItemGreaterEqual
+	ItemLess
+	ItemLessEqual
+	ItemIdentifier
+	ItemString // string literal (includes quotes)
+	ItemNumber // number literal
+	// Keywords appear after all the rest
+	ItemKeyword // used only to delimit the keywords
+	ItemAnd     // and keyword
+	ItemClass   // class keyword
+	ItemElse    // else keyword
+	ItemFalse   // false literal
+	ItemFun     // fun keyword
+	ItemFor     // for keyword
+	ItemIf      // if keyword
+	ItemNil     // nil keyword
+	ItemOr      // or keyword
+	ItemPrint   // print keyword
+	ItemReturn  // return keyword
+	ItemSuper   // super keyword
+	ItemThis    // this keyword
+	ItemTrue    // true literal
+	ItemVar     // var keyword
+	ItemWhile   // while keyword
+)
 
 type lexer struct {
 	input     string // the string being scanned
 	pos       Pos    // current position in the input
 	start     Pos    // start position of this item
 	width     Pos    // width of the last rune read from input
-	out       item   // most recent item
+	out       Item   // most recent item
 	line      int    // 1+number of newlines seen
 	startLine int    // start line of this item
 }
@@ -131,15 +146,15 @@ func (l *lexer) ignore() {
 }
 
 // emit passes an item back to the client
-func (l *lexer) emit(t itemType) {
-	l.out = item{t, l.start, l.input[l.start:l.pos], l.line}
+func (l *lexer) emit(t ItemType) {
+	l.out = Item{t, l.start, l.input[l.start:l.pos], l.line}
 	l.start = l.pos
 	l.startLine = l.line
 }
 
 // emitError passes an error item back to the client.
 func (l *lexer) emitError(format string, args ...interface{}) {
-	l.out = item{itemError, l.start, fmt.Sprintf(format, args...), l.line}
+	l.out = Item{ItemError, l.start, fmt.Sprintf(format, args...), l.line}
 	l.start = l.pos
 	l.startLine = l.line
 }
@@ -162,46 +177,46 @@ func (l *lexer) acceptRun(valid string) {
 
 // item  returns the next item from the input.
 // Called by the parser.
-func (l *lexer) item() item {
+func (l *lexer) item() Item {
 	return l.out
 }
 
-var singleCharItems = map[rune]itemType{
-	'(': itemLeftParen, ')': itemRightParen,
-	'{': itemLeftBrace, '}': itemRightBrace,
-	',': itemComma, '.': itemDot,
-	'-': itemMinus, '+': itemPlus,
-	';': itemSemicolon, '*': itemStar,
-	eof: itemEOF,
+var singleCharItems = map[rune]ItemType{
+	'(': ItemLeftParen, ')': ItemRightParen,
+	'{': ItemLeftBrace, '}': ItemRightBrace,
+	',': ItemComma, '.': ItemDot,
+	'-': ItemMinus, '+': ItemPlus,
+	';': ItemSemicolon, '*': ItemStar,
+	eof: ItemEOF,
 }
 
 func (l *lexer) scan() bool {
-	if l.out.typ == itemEOF {
+	if l.out.Type == ItemEOF {
 		return false
 	}
 	l.acceptRun(" \r\t\n")
 	l.ignore()
 	switch r := l.next(); {
 	case r == eof:
-		l.emit(itemEOF)
-	case singleCharItems[r] != itemError:
+		l.emit(ItemEOF)
+	case singleCharItems[r] != ItemError:
 		l.emit(singleCharItems[r])
 	case r == '!' && l.accept("="):
-		l.emit(itemBangEqual)
+		l.emit(ItemBangEqual)
 	case r == '!':
-		l.emit(itemBang)
+		l.emit(ItemBang)
 	case r == '=' && l.accept("="):
-		l.emit(itemEqualEqual)
+		l.emit(ItemEqualEqual)
 	case r == '=':
-		l.emit(itemEqual)
+		l.emit(ItemEqual)
 	case r == '<' && l.accept("="):
-		l.emit(itemLessEqual)
+		l.emit(ItemLessEqual)
 	case r == '<':
-		l.emit(itemLess)
+		l.emit(ItemLess)
 	case r == '>' && l.accept("="):
-		l.emit(itemGreaterEqual)
+		l.emit(ItemGreaterEqual)
 	case r == '>':
-		l.emit(itemGreater)
+		l.emit(ItemGreater)
 	case r == '/':
 		if l.accept("/") {
 			for r := l.next(); r != '\n' && r != eof; r = l.next() {
@@ -210,7 +225,7 @@ func (l *lexer) scan() bool {
 			l.ignore()
 			return l.scan()
 		} else {
-			l.emit(itemSlash)
+			l.emit(ItemSlash)
 		}
 	case r == '"':
 		l.lexString()
@@ -235,7 +250,7 @@ func (l *lexer) lexString() {
 		l.backup()
 		l.emitError("unterminated string")
 	} else {
-		l.emit(itemString)
+		l.emit(ItemString)
 	}
 }
 
@@ -250,7 +265,7 @@ func (l *lexer) lexNumber() {
 		l.emitError("number with trailing .")
 	} else {
 		l.acceptRun(digits)
-		l.emit(itemNumber)
+		l.emit(ItemNumber)
 	}
 }
 
@@ -264,23 +279,23 @@ func isAlphanumeric(r rune) bool {
 	return isAlpha(r) || isDigit(r)
 }
 
-var key = map[string]itemType{
-	"and":    itemAnd,
-	"class":  itemClass,
-	"else":   itemElse,
-	"false":  itemFalse,
-	"for":    itemFor,
-	"fun":    itemFun,
-	"if":     itemIf,
-	"nil":    itemNil,
-	"or":     itemOr,
-	"print":  itemPrint,
-	"return": itemReturn,
-	"super":  itemSuper,
-	"this":   itemThis,
-	"true":   itemTrue,
-	"var":    itemVar,
-	"while":  itemWhile,
+var key = map[string]ItemType{
+	"and":    ItemAnd,
+	"class":  ItemClass,
+	"else":   ItemElse,
+	"false":  ItemFalse,
+	"for":    ItemFor,
+	"fun":    ItemFun,
+	"if":     ItemIf,
+	"nil":    ItemNil,
+	"or":     ItemOr,
+	"print":  ItemPrint,
+	"return": ItemReturn,
+	"super":  ItemSuper,
+	"this":   ItemThis,
+	"true":   ItemTrue,
+	"var":    ItemVar,
+	"while":  ItemWhile,
 }
 
 func (l *lexer) lexIdentifier() {
@@ -291,7 +306,7 @@ func (l *lexer) lexIdentifier() {
 	word := l.input[l.start:l.pos]
 	typ, ok := key[word]
 	if !ok {
-		typ = itemIdentifier
+		typ = ItemIdentifier
 	}
 	l.emit(typ)
 }

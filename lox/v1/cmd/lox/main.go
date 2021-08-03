@@ -2,12 +2,26 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/alan-strohm/misc/lox/v1/internal/dot"
+	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 )
 
+var dotF = flag.String("dotFile", "", "if non-empty, file to write parse tree in dot format.")
+
 func run(code string) error {
+	x, err := parse.ParseExpr(code)
+	if err != nil {
+		return err
+	}
+	if *dotF != "" {
+		out := dot.ExprToDot(x)
+		return os.WriteFile(*dotF, []byte(out), 0666)
+	}
 	return nil
 }
 
@@ -38,12 +52,14 @@ func runPrompt() error {
 }
 
 func main() {
+	flag.Parse()
 	var err error
-	if len(os.Args) > 2 {
+	if len(flag.Args()) > 1 {
 		fmt.Println("Usage: lox [script]")
+		flag.PrintDefaults()
 		os.Exit(64)
-	} else if len(os.Args) == 2 {
-		err = runFile(os.Args[1])
+	} else if len(flag.Args()) == 1 {
+		err = runFile(flag.Arg(0))
 	} else {
 		err = runPrompt()
 	}
