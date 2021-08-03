@@ -84,6 +84,11 @@ func TestLex(t *testing.T) {
 			{token.VAR, 62, "var"},
 			{token.WHILE, 66, "while"},
 			{token.EOF, 71, ""}}},
+		{"print a;", []token.Token{
+			{token.PRINT, 0, "print"},
+			{token.IDENT, 6, "a"},
+			{token.SEMICOLON, 7, ";"},
+			{token.EOF, 8, ""}}},
 	}
 	for _, tc := range cases {
 		l := lex(tc.in)

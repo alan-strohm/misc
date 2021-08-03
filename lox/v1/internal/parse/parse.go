@@ -26,6 +26,10 @@ type (
 		From, To token.Pos
 	}
 
+	Ident struct {
+		Tok token.Token
+	}
+
 	// A BinaryExpr node represents a binary expression.
 	BinaryExpr struct {
 		X  Expr        // left operand
@@ -56,6 +60,9 @@ type (
 	PartialExprVisitor interface {
 		VisitExpr(x Expr)
 	}
+	IdentVisitor interface {
+		VisitIdent(x *Ident)
+	}
 	BinaryExprVisitor interface {
 		VisitBinaryExpr(x *BinaryExpr)
 	}
@@ -69,6 +76,7 @@ type (
 		VisitParenExpr(x *ParenExpr)
 	}
 	FullExprVisitor interface {
+		IdentVisitor
 		BinaryExprVisitor
 		UnaryExprVisitor
 		BasicLitVisitor
@@ -93,6 +101,12 @@ func ExprAcceptPartialVisitor(e Expr, v PartialExprVisitor) {
 
 func exprAcceptVisitor(e Expr, v interface{}) {
 	switch t := e.(type) {
+	case *Ident:
+		n, ok := v.(IdentVisitor)
+		if ok {
+			n.VisitIdent(t)
+			return
+		}
 	case *BinaryExpr:
 		n, ok := v.(BinaryExprVisitor)
 		if ok {
@@ -122,12 +136,14 @@ func exprAcceptVisitor(e Expr, v interface{}) {
 }
 
 func (x *BadExpr) Pos() token.Pos    { return x.From }
+func (x *Ident) Pos() token.Pos      { return x.Tok.Pos }
 func (x *BasicLit) Pos() token.Pos   { return x.Value.Pos }
 func (x *BinaryExpr) Pos() token.Pos { return x.X.Pos() }
 func (x *ParenExpr) Pos() token.Pos  { return x.Lparen }
 func (x *UnaryExpr) Pos() token.Pos  { return x.Op.Pos }
 
 func (x *BadExpr) End() token.Pos    { return x.To }
+func (x *Ident) End() token.Pos      { return x.Tok.Pos + token.Pos(len(x.Tok.Val)) }
 func (x *BasicLit) End() token.Pos   { return x.Value.Pos + token.Pos(len(x.Value.Val)) }
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
 func (x *ParenExpr) End() token.Pos  { return x.Rparen }
@@ -136,7 +152,8 @@ func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
 // exprNode() ensures that only expression/type nodes can be
 // assigned to an Expr.
 //
-func (x *BadExpr) exprNode()  {}
+func (*BadExpr) exprNode()    {}
+func (*Ident) exprNode()      {}
 func (*BasicLit) exprNode()   {}
 func (*ParenExpr) exprNode()  {}
 func (*UnaryExpr) exprNode()  {}
@@ -170,6 +187,13 @@ type (
 		X Expr // expression
 	}
 
+	// A VarStmt node represents a var statement.
+	//
+	VarStmt struct {
+		Name  token.Token
+		Value Expr // initial value; or nil
+	}
+
 	PartialStmtVisitor interface {
 		VisitStmt(x Stmt)
 	}
@@ -179,9 +203,13 @@ type (
 	PrintStmtVisitor interface {
 		VisitPrintStmt(x *PrintStmt)
 	}
+	VarStmtVisitor interface {
+		VisitVarStmt(x *VarStmt)
+	}
 	FullStmtVisitor interface {
 		ExprStmtVisitor
 		PrintStmtVisitor
+		VarStmtVisitor
 	}
 )
 
@@ -190,10 +218,17 @@ type (
 func (s *BadStmt) Pos() token.Pos   { return s.From }
 func (s *ExprStmt) Pos() token.Pos  { return s.X.Pos() }
 func (s *PrintStmt) Pos() token.Pos { return s.X.Pos() }
+func (s *VarStmt) Pos() token.Pos   { return s.Name.Pos }
 
 func (s *BadStmt) End() token.Pos   { return s.To }
 func (s *ExprStmt) End() token.Pos  { return s.X.End() }
 func (s *PrintStmt) End() token.Pos { return s.X.End() }
+func (s *VarStmt) End() token.Pos {
+	if s.Value != nil {
+		return s.Value.End()
+	}
+	return s.Name.Pos + token.Pos(len(s.Name.Val))
+}
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -201,6 +236,7 @@ func (s *PrintStmt) End() token.Pos { return s.X.End() }
 func (*BadStmt) stmtNode()   {}
 func (*ExprStmt) stmtNode()  {}
 func (*PrintStmt) stmtNode() {}
+func (*VarStmt) stmtNode()   {}
 
 // Call the appropriate visitor method on v.
 //
@@ -229,6 +265,12 @@ func stmtAcceptVisitor(e Stmt, v interface{}) {
 		n, ok := v.(PrintStmtVisitor)
 		if ok {
 			n.VisitPrintStmt(t)
+			return
+		}
+	case *VarStmt:
+		n, ok := v.(VarStmtVisitor)
+		if ok {
+			n.VisitVarStmt(t)
 			return
 		}
 	}
@@ -284,7 +326,7 @@ func (p *parser) error(pos token.Pos, msg string) {
 func (p *parser) errorExpected(pos token.Pos, msg string) {
 	msg = "expected " + msg
 	if pos == p.cur().Pos {
-		msg += fmt.Sprintf(", found '%s'", p.cur())
+		msg += fmt.Sprintf(", found %s", p.cur())
 	}
 	p.error(pos, msg)
 }
@@ -323,6 +365,10 @@ func (p *parser) parseOperand() Expr {
 		p.exprLev--
 		rparen := p.expect(token.RPAREN)
 		return &ParenExpr{Lparen: lparen, X: x, Rparen: rparen}
+	case token.IDENT:
+		tok := p.cur()
+		p.next()
+		return &Ident{Tok: tok}
 	}
 
 	pos := p.cur().Pos
@@ -422,11 +468,30 @@ func (p *parser) parseStmt() Stmt {
 		return p.parseExprStmt()
 	}
 }
+func (p *parser) parseDecl() Stmt {
+	if p.trace {
+		defer un(trace(p, "Decl"))
+	}
+	if p.cur().Type == token.VAR {
+		p.expect(token.VAR)
+		n := p.cur()
+		p.expect(token.IDENT)
+		if n.Type != token.IDENT {
+			return &BadStmt{}
+		}
+		if p.cur().Type == token.ASSIGN {
+			p.next()
+			return &VarStmt{Name: n, Value: p.parseExpr()}
+		}
+		return &VarStmt{Name: n, Value: nil}
+	}
+	return p.parseStmt()
+}
 
 func (p *parser) parseProgram() ([]Stmt, error) {
 	r := make([]Stmt, 0)
 	for p.next(); p.cur().Type != token.EOF; p.next() {
-		r = append(r, p.parseStmt())
+		r = append(r, p.parseDecl())
 	}
 	return r, p.err()
 }

@@ -139,45 +139,49 @@ func isEqual(x, y *Value) bool {
 	return x.v == y.v
 }
 
-type visitor struct {
+type Interpreter struct {
 	stack  []*Value
 	errors []error
+	env    map[string]*Value
 }
 
-func (i *visitor) push(v *Value) {
+func (i *Interpreter) push(v *Value) {
 	i.stack = append(i.stack, v)
 }
-func (i *visitor) peek() *Value {
+func (i *Interpreter) peek() *Value {
 	return i.stack[len(i.stack)-1]
 }
-func (i *visitor) pop() *Value {
+func (i *Interpreter) pop() *Value {
 	r := i.peek()
 	i.stack = i.stack[0 : len(i.stack)-1]
 	return r
 }
 
-func (i *visitor) evaluate(e parse.Expr) *Value {
+func (i *Interpreter) evaluate(e parse.Expr) *Value {
 	parse.ExprAcceptFullVisitor(e, i)
 	r := i.pop()
+	if r.err() != nil {
+		i.errors = append(i.errors, r.err())
+	}
 	return r
 }
 
-func (i *visitor) VisitParenExpr(e *parse.ParenExpr) {
+func (i *Interpreter) VisitParenExpr(e *parse.ParenExpr) {
 	parse.ExprAcceptFullVisitor(e.X, i)
 }
 
-func (i *visitor) VisitBinaryExpr(e *parse.BinaryExpr) {
+func (i *Interpreter) VisitBinaryExpr(e *parse.BinaryExpr) {
 	x := i.evaluate(e.X)
 	y := i.evaluate(e.Y)
 	i.push(x.binary(e.Op, y))
 }
 
-func (i *visitor) VisitUnaryExpr(e *parse.UnaryExpr) {
+func (i *Interpreter) VisitUnaryExpr(e *parse.UnaryExpr) {
 	v := i.evaluate(e.X)
 	i.push(v.unary(e.Op))
 }
 
-func (i *visitor) VisitBasicLit(e *parse.BasicLit) {
+func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 	switch e.Value.Type {
 	case token.STRING:
 		s, err := strconv.Unquote(e.Value.Val)
@@ -202,28 +206,40 @@ func (i *visitor) VisitBasicLit(e *parse.BasicLit) {
 	}
 }
 
-func (i *visitor) VisitExprStmt(x *parse.ExprStmt) {
-	v := i.evaluate(x.X)
-	if v.err() != nil {
-		i.errors = append(i.errors, v.err())
+func (i *Interpreter) VisitIdent(x *parse.Ident) {
+	v, ok := i.env[x.Tok.Val]
+	if !ok {
+		i.push(newError(x.Tok, "reference to undefined identifier '%s'", x.Tok.Val))
+		return
 	}
+	i.push(v)
 }
 
-func (i *visitor) VisitPrintStmt(x *parse.PrintStmt) {
+func (i *Interpreter) VisitExprStmt(x *parse.ExprStmt) {
+	i.evaluate(x.X)
+}
+
+func (i *Interpreter) VisitPrintStmt(x *parse.PrintStmt) {
 	v := i.evaluate(x.X)
-	if v.err() != nil {
-		i.errors = append(i.errors, v.err())
-	} else {
+	if len(i.errors) == 0 {
 		fmt.Println(v)
 	}
 }
 
-func (i *visitor) execute(x parse.Stmt) error {
+func (i *Interpreter) VisitVarStmt(x *parse.VarStmt) {
+	v := newValue(nil)
+	if x.Value != nil {
+		v = i.evaluate(x.Value)
+	}
+	i.env[x.Name.Val] = v
+}
+
+func (i *Interpreter) execute(x parse.Stmt) error {
 	parse.StmtAcceptFullVisitor(x, i)
 	return i.err()
 }
 
-func (i *visitor) err() error {
+func (i *Interpreter) err() error {
 	switch len(i.errors) {
 	case 0:
 		return nil
@@ -233,16 +249,18 @@ func (i *visitor) err() error {
 	return fmt.Errorf("%s (and %d more errors)", i.errors[0], len(i.errors)-1)
 }
 
+func New() *Interpreter {
+	return &Interpreter{env: make(map[string]*Value)}
+}
+
 func InterpretExpr(e parse.Expr) (*Value, error) {
-	v := &visitor{}
-	r := v.evaluate(e)
+	r := New().evaluate(e)
 	return r, r.err()
 }
 
-func Interpret(program []parse.Stmt) error {
-	v := &visitor{}
+func (i *Interpreter) Interpret(program []parse.Stmt) error {
 	for _, s := range program {
-		if err := v.execute(s); err != nil {
+		if err := i.execute(s); err != nil {
 			return err
 		}
 	}

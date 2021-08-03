@@ -13,6 +13,8 @@ import (
 
 var dotF = flag.String("dotFile", "", "if non-empty, file to write parse tree in dot format.")
 
+var interpreter = interpret.New()
+
 func run(code string) error {
 	p, err := parse.ParseProgram(code)
 	if err != nil {
@@ -24,7 +26,7 @@ func run(code string) error {
 			return os.WriteFile(*dotF, []byte(out), 0666)
 		}
 	*/
-	if err := interpret.Interpret(p); err != nil {
+	if err := interpreter.Interpret(p); err != nil {
 		return err
 	}
 	return nil
