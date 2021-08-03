@@ -8,7 +8,7 @@ import (
 	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 )
 
-func TestInterpret(t *testing.T) {
+func TestInterpretExpr(t *testing.T) {
 	cases := []struct {
 		in, exp, err string
 	}{
@@ -60,16 +60,16 @@ func TestInterpret(t *testing.T) {
 		if err != nil {
 			t.Errorf("ParseExpr(%s) = %s, want nil", tc.in, err)
 		}
-		v, err := Interpret(e)
+		v, err := InterpretExpr(e)
 		if err == nil {
 			if fmt.Sprintf("%v", v) != tc.exp {
 				t.Errorf("Interpret(%s) = %v, want %s", tc.in, v, tc.exp)
 			}
 		} else {
 			if tc.err == "" {
-				t.Errorf("Interpret(%s) = %s, want nil", tc.in, err)
+				t.Errorf("InterpretExpr(%s) = %s, want nil", tc.in, err)
 			} else if !strings.Contains(err.Error(), tc.err) {
-				t.Errorf("Interpret(%s) = %s, want %s", tc.in, err, tc.err)
+				t.Errorf("InterpretExpr(%s) = %s, want %s", tc.in, err, tc.err)
 			}
 		}
 	}

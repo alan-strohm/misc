@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/alan-strohm/misc/lox/v1/internal/dot"
 	"github.com/alan-strohm/misc/lox/v1/internal/interpret"
 	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 )
@@ -15,19 +14,19 @@ import (
 var dotF = flag.String("dotFile", "", "if non-empty, file to write parse tree in dot format.")
 
 func run(code string) error {
-	x, err := parse.ParseExpr(code)
+	p, err := parse.ParseProgram(code)
 	if err != nil {
 		return err
 	}
-	if *dotF != "" {
-		out := dot.ExprToDot(x)
-		return os.WriteFile(*dotF, []byte(out), 0666)
-	}
-	v, err := interpret.Interpret(x)
-	if err != nil {
+	/*
+		if *dotF != "" {
+			out := dot.ExprToDot(p)
+			return os.WriteFile(*dotF, []byte(out), 0666)
+		}
+	*/
+	if err := interpret.Interpret(p); err != nil {
 		return err
 	}
-	fmt.Printf("%s\n", v)
 	return nil
 }
 

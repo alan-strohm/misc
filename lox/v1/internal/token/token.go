@@ -76,7 +76,7 @@ var tokens = [...]string{
 
 	RPAREN:    ")",
 	RBRACE:    "}",
-	SEMICOLON: ":",
+	SEMICOLON: ";",
 
 	SUB: "-",
 	ADD: "+",

@@ -140,7 +140,8 @@ func isEqual(x, y *Value) bool {
 }
 
 type visitor struct {
-	stack []*Value
+	stack  []*Value
+	errors []error
 }
 
 func (i *visitor) push(v *Value) {
@@ -201,8 +202,49 @@ func (i *visitor) VisitBasicLit(e *parse.BasicLit) {
 	}
 }
 
-func Interpret(e parse.Expr) (*Value, error) {
+func (i *visitor) VisitExprStmt(x *parse.ExprStmt) {
+	v := i.evaluate(x.X)
+	if v.err() != nil {
+		i.errors = append(i.errors, v.err())
+	}
+}
+
+func (i *visitor) VisitPrintStmt(x *parse.PrintStmt) {
+	v := i.evaluate(x.X)
+	if v.err() != nil {
+		i.errors = append(i.errors, v.err())
+	} else {
+		fmt.Println(v)
+	}
+}
+
+func (i *visitor) execute(x parse.Stmt) error {
+	parse.StmtAcceptFullVisitor(x, i)
+	return i.err()
+}
+
+func (i *visitor) err() error {
+	switch len(i.errors) {
+	case 0:
+		return nil
+	case 1:
+		return i.errors[0]
+	}
+	return fmt.Errorf("%s (and %d more errors)", i.errors[0], len(i.errors)-1)
+}
+
+func InterpretExpr(e parse.Expr) (*Value, error) {
 	v := &visitor{}
 	r := v.evaluate(e)
 	return r, r.err()
+}
+
+func Interpret(program []parse.Stmt) error {
+	v := &visitor{}
+	for _, s := range program {
+		if err := v.execute(s); err != nil {
+			return err
+		}
+	}
+	return nil
 }

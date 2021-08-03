@@ -6,18 +6,24 @@ import (
 	"github.com/alan-strohm/misc/lox/v1/internal/token"
 )
 
-type (
-	Node interface {
-		Pos() token.Pos // position of the first character belonging to the node
-		End() token.Pos // position of the first character immediately after the node.
-	}
+type Node interface {
+	Pos() token.Pos // position of the first character belonging to the node
+	End() token.Pos // position of the first character immediately after the node.
+}
 
+type Expr interface {
+	Node
+	exprNode()
+}
+
+type Stmt interface {
+	Node
+	stmtNode()
+}
+
+type (
 	BadExpr struct {
 		From, To token.Pos
-	}
-
-	Expr interface {
-		Node
 	}
 
 	// A BinaryExpr node represents a binary expression.
@@ -47,6 +53,9 @@ type (
 		Rparen token.Pos // position of ")"
 	}
 
+	PartialExprVisitor interface {
+		VisitExpr(x Expr)
+	}
 	BinaryExprVisitor interface {
 		VisitBinaryExpr(x *BinaryExpr)
 	}
@@ -64,9 +73,6 @@ type (
 		UnaryExprVisitor
 		BasicLitVisitor
 		ParenExprVisitor
-	}
-	PartialExprVisitor interface {
-		VisitExpr(x Expr)
 	}
 )
 
@@ -126,6 +132,108 @@ func (x *BasicLit) End() token.Pos   { return x.Value.Pos + token.Pos(len(x.Valu
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
 func (x *ParenExpr) End() token.Pos  { return x.Rparen }
 func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
+
+// exprNode() ensures that only expression/type nodes can be
+// assigned to an Expr.
+//
+func (x *BadExpr) exprNode()  {}
+func (*BasicLit) exprNode()   {}
+func (*ParenExpr) exprNode()  {}
+func (*UnaryExpr) exprNode()  {}
+func (*BinaryExpr) exprNode() {}
+
+// ----------------------------------------------------------------------------
+// Statements
+
+// A statement is represented by a tree consisting of one
+// or more of the following concrete statement nodes.
+//
+type (
+	// A BadStmt node is a placeholder for statements containing
+	// syntax errors for which no correct statement nodes can be
+	// created.
+	//
+	BadStmt struct {
+		From, To token.Pos // position range of bad statement
+	}
+
+	// An ExprStmt node represents a (stand-alone) expression
+	// in a statement list.
+	//
+	ExprStmt struct {
+		X Expr // expression
+	}
+
+	// A PrintStmt node represents a print statement.
+	//
+	PrintStmt struct {
+		X Expr // expression
+	}
+
+	PartialStmtVisitor interface {
+		VisitStmt(x Stmt)
+	}
+	ExprStmtVisitor interface {
+		VisitExprStmt(x *ExprStmt)
+	}
+	PrintStmtVisitor interface {
+		VisitPrintStmt(x *PrintStmt)
+	}
+	FullStmtVisitor interface {
+		ExprStmtVisitor
+		PrintStmtVisitor
+	}
+)
+
+// Pos and End implementations for statement nodes.
+
+func (s *BadStmt) Pos() token.Pos   { return s.From }
+func (s *ExprStmt) Pos() token.Pos  { return s.X.Pos() }
+func (s *PrintStmt) Pos() token.Pos { return s.X.Pos() }
+
+func (s *BadStmt) End() token.Pos   { return s.To }
+func (s *ExprStmt) End() token.Pos  { return s.X.End() }
+func (s *PrintStmt) End() token.Pos { return s.X.End() }
+
+// stmtNode() ensures that only statement nodes can be
+// assigned to a Stmt.
+//
+func (*BadStmt) stmtNode()   {}
+func (*ExprStmt) stmtNode()  {}
+func (*PrintStmt) stmtNode() {}
+
+// Call the appropriate visitor method on v.
+//
+// When we add new types of statement, existing uses of StmtAcceptFullVisitor
+// will no longer compile until their visitors are updated.  If, instead, you
+// want a default visit function to be called, use StmtAcceptPartialVisitor.
+func StmtAcceptFullVisitor(e Stmt, v FullStmtVisitor) {
+	stmtAcceptVisitor(e, v)
+}
+
+// If v implements a visitor for e's type (e.g. PrintStmtVisitor), call the
+// appropriate visitor method (e.g. VisitPrintStmt).  Otherwise, call VisitStmt.
+func StmtAcceptPartialVisitor(e Stmt, v PartialStmtVisitor) {
+	stmtAcceptVisitor(e, v)
+}
+
+func stmtAcceptVisitor(e Stmt, v interface{}) {
+	switch t := e.(type) {
+	case *ExprStmt:
+		n, ok := v.(ExprStmtVisitor)
+		if ok {
+			n.VisitExprStmt(t)
+			return
+		}
+	case *PrintStmt:
+		n, ok := v.(PrintStmtVisitor)
+		if ok {
+			n.VisitPrintStmt(t)
+			return
+		}
+	}
+	v.(PartialStmtVisitor).VisitStmt(e)
+}
 
 type parser struct {
 	l       *lexer
@@ -268,21 +376,69 @@ func (p *parser) parseExpr() Expr {
 	return p.parseBinaryExpr(token.LowestPrec + 1)
 }
 
-func (p *parser) Parse() (Expr, error) {
-	p.next()
-	exp := p.parseExpr()
+func (p *parser) err() error {
 	switch len(p.errors) {
 	case 0:
-		return exp, nil
+		return nil
 	case 1:
-		return nil, p.errors[0]
+		return p.errors[0]
 	}
-	return nil, fmt.Errorf("%s (and %d more errors)", p.errors[0], len(p.errors)-1)
+	return fmt.Errorf("%s (and %d more errors)", p.errors[0], len(p.errors)-1)
+}
+
+func (p *parser) parseAndReturnExpr() (Expr, error) {
+	p.next()
+	return p.parseExpr(), p.err()
+}
+
+func (p *parser) parsePrintStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "PrintStmt"))
+	}
+	x := p.parseExpr()
+	p.expect(token.SEMICOLON)
+	return &PrintStmt{X: x}
+}
+
+func (p *parser) parseExprStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "ExprStmt"))
+	}
+	x := p.parseExpr()
+	p.expect(token.SEMICOLON)
+	return &ExprStmt{X: x}
+}
+
+func (p *parser) parseStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "Statement"))
+	}
+
+	switch p.cur().Type {
+	case token.PRINT:
+		p.next()
+		return p.parsePrintStmt()
+	default:
+		return p.parseExprStmt()
+	}
+}
+
+func (p *parser) parseProgram() ([]Stmt, error) {
+	r := make([]Stmt, 0)
+	for p.next(); p.cur().Type != token.EOF; p.next() {
+		r = append(r, p.parseStmt())
+	}
+	return r, p.err()
 }
 
 func ParseExpr(x string) (Expr, error) {
 	p := &parser{l: lex(x), trace: false}
-	return p.Parse()
+	return p.parseAndReturnExpr()
+}
+
+func ParseProgram(x string) ([]Stmt, error) {
+	p := &parser{l: lex(x), trace: false}
+	return p.parseProgram()
 }
 
 var stmtStart = map[token.Type]bool{
