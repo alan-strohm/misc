@@ -28,9 +28,9 @@ func (p *exprPrinter) pushIdent() string {
 
 func (p *exprPrinter) VisitBinaryExpr(e *parse.BinaryExpr) {
 	this := p.pushIdent()
-	parse.ExprAcceptVisitor(e.X, p)
+	parse.ExprAcceptFullVisitor(e.X, p)
 	x := p.popIdent()
-	parse.ExprAcceptVisitor(e.Y, p)
+	parse.ExprAcceptFullVisitor(e.Y, p)
 	y := p.popIdent()
 	p.lines = append(p.lines, fmt.Sprintf(`%s [label="%s"]`, this, e.Op.Val))
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
@@ -38,7 +38,7 @@ func (p *exprPrinter) VisitBinaryExpr(e *parse.BinaryExpr) {
 }
 func (p *exprPrinter) VisitUnaryExpr(e *parse.UnaryExpr) {
 	this := p.pushIdent()
-	parse.ExprAcceptVisitor(e.X, p)
+	parse.ExprAcceptFullVisitor(e.X, p)
 	x := p.popIdent()
 	p.lines = append(p.lines, fmt.Sprintf(`%s [label="%s"]`, this, e.Op.Val))
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
@@ -49,7 +49,7 @@ func (p *exprPrinter) VisitBasicLit(e *parse.BasicLit) {
 }
 func (p *exprPrinter) VisitParenExpr(e *parse.ParenExpr) {
 	this := p.pushIdent()
-	parse.ExprAcceptVisitor(e.X, p)
+	parse.ExprAcceptFullVisitor(e.X, p)
 	x := p.popIdent()
 	p.lines = append(p.lines, fmt.Sprintf(`%s [label="()"]`, this))
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
@@ -57,6 +57,6 @@ func (p *exprPrinter) VisitParenExpr(e *parse.ParenExpr) {
 
 func ExprToDot(e parse.Expr) string {
 	p := &exprPrinter{}
-	parse.ExprAcceptVisitor(e, p)
+	parse.ExprAcceptFullVisitor(e, p)
 	return fmt.Sprintf("digraph G {\n  %s\n}", strings.Join(p.lines, "\n  "))
 }

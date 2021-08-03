@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/alan-strohm/misc/lox/v1/internal/dot"
+	"github.com/alan-strohm/misc/lox/v1/internal/interpret"
 	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 )
 
@@ -22,6 +23,11 @@ func run(code string) error {
 		out := dot.ExprToDot(x)
 		return os.WriteFile(*dotF, []byte(out), 0666)
 	}
+	v, err := interpret.Interpret(x)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", v)
 	return nil
 }
 

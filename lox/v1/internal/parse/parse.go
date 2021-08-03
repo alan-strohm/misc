@@ -47,26 +47,72 @@ type (
 		Rparen token.Pos // position of ")"
 	}
 
-	// An expression visitor visits each piece of an expression.
-	ExprVisitor interface {
+	BinaryExprVisitor interface {
 		VisitBinaryExpr(x *BinaryExpr)
+	}
+	UnaryExprVisitor interface {
 		VisitUnaryExpr(x *UnaryExpr)
+	}
+	BasicLitVisitor interface {
 		VisitBasicLit(x *BasicLit)
+	}
+	ParenExprVisitor interface {
 		VisitParenExpr(x *ParenExpr)
+	}
+	FullExprVisitor interface {
+		BinaryExprVisitor
+		UnaryExprVisitor
+		BasicLitVisitor
+		ParenExprVisitor
+	}
+	PartialExprVisitor interface {
+		VisitExpr(x Expr)
 	}
 )
 
-func ExprAcceptVisitor(e Expr, v ExprVisitor) {
+// Call the appropriate visitor method on v.
+//
+// When we add new types of expression, existing uses of ExprAcceptFullVisitor
+// will no longer compile until their visitors are updated.  If, instead, you
+// want a default visit function to be called, use ExprAcceptPartialVisitor.
+func ExprAcceptFullVisitor(e Expr, v FullExprVisitor) {
+	exprAcceptVisitor(e, v)
+}
+
+// If v implements a visitor for e's type (e.g. BinaryExprVisitor), call the
+// appropriate visitor method (e.g. VisitBinaryExpr).  Otherwise, call VisitExpr.
+func ExprAcceptPartialVisitor(e Expr, v PartialExprVisitor) {
+	exprAcceptVisitor(e, v)
+}
+
+func exprAcceptVisitor(e Expr, v interface{}) {
 	switch t := e.(type) {
 	case *BinaryExpr:
-		v.VisitBinaryExpr(t)
+		n, ok := v.(BinaryExprVisitor)
+		if ok {
+			n.VisitBinaryExpr(t)
+		}
+		return
 	case *UnaryExpr:
-		v.VisitUnaryExpr(t)
+		n, ok := v.(UnaryExprVisitor)
+		if ok {
+			n.VisitUnaryExpr(t)
+		}
+		return
 	case *BasicLit:
-		v.VisitBasicLit(t)
+		n, ok := v.(BasicLitVisitor)
+		if ok {
+			n.VisitBasicLit(t)
+		}
+		return
 	case *ParenExpr:
-		v.VisitParenExpr(t)
+		n, ok := v.(ParenExprVisitor)
+		if ok {
+			n.VisitParenExpr(t)
+		}
+		return
 	}
+	v.(PartialExprVisitor).VisitExpr(e)
 }
 
 func (x *BadExpr) Pos() token.Pos    { return x.From }
@@ -124,7 +170,7 @@ func (p *parser) cur() token.Token {
 }
 
 func (p *parser) error(pos token.Pos, msg string) {
-	p.errors = append(p.errors, fmt.Errorf("%d: %s", pos, msg))
+	p.errors = append(p.errors, fmt.Errorf("pos %d: %s", pos, msg))
 }
 
 func (p *parser) errorExpected(pos token.Pos, msg string) {

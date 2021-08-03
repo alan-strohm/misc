@@ -121,7 +121,9 @@ const (
 
 func (t Type) Precedence() int {
 	switch t {
-	case EQL, NEQ, GTR, LSS, GEQ, LEQ:
+	case EQL, NEQ:
+		return 2
+	case GTR, LSS, GEQ, LEQ:
 		return 3
 	case ADD, SUB:
 		return 4
