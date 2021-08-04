@@ -288,6 +288,18 @@ func (i *Interpreter) VisitBlockStmt(x *parse.BlockStmt) {
 	_ = i.executeBlock(x.List)
 }
 
+func (i *Interpreter) VisitIfStmt(x *parse.IfStmt) {
+	cond := i.evaluate(x.Cond)
+	if cond.err() != nil {
+		return
+	}
+	if cond.isTruthy() {
+		i.execute(x.Body)
+	} else if x.Else != nil {
+		i.execute(x.Else)
+	}
+}
+
 func (i *Interpreter) execute(x parse.Stmt) error {
 	parse.StmtAcceptFullVisitor(x, i)
 	return i.err()

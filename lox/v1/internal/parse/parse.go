@@ -226,6 +226,14 @@ type (
 		Rbrace token.Pos // position of "}", if any (may be absent due to syntax error)
 	}
 
+	// An IfStmt node represents an if statement.
+	IfStmt struct {
+		If   token.Pos // position of "if" keyword
+		Cond Expr      // condition
+		Body Stmt
+		Else Stmt // else branch; or nil
+	}
+
 	PartialStmtVisitor interface {
 		VisitStmt(x Stmt)
 	}
@@ -241,11 +249,15 @@ type (
 	BlockStmtVisitor interface {
 		VisitBlockStmt(x *BlockStmt)
 	}
+	IfStmtVisitor interface {
+		VisitIfStmt(x *IfStmt)
+	}
 	FullStmtVisitor interface {
 		ExprStmtVisitor
 		PrintStmtVisitor
 		VarStmtVisitor
 		BlockStmtVisitor
+		IfStmtVisitor
 	}
 )
 
@@ -256,12 +268,27 @@ func (s *ExprStmt) Pos() token.Pos  { return s.X.Pos() }
 func (s *PrintStmt) Pos() token.Pos { return s.Print }
 func (s *VarStmt) Pos() token.Pos   { return s.Var }
 func (s *BlockStmt) Pos() token.Pos { return s.Lbrace }
+func (s *IfStmt) Pos() token.Pos    { return s.If }
 
 func (s *BadStmt) End() token.Pos   { return s.To }
-func (s *ExprStmt) End() token.Pos  { return s.Semicolon }
-func (s *PrintStmt) End() token.Pos { return s.Semicolon }
-func (s *VarStmt) End() token.Pos   { return s.Semicolon }
-func (s *BlockStmt) End() token.Pos { return s.Rbrace }
+func (s *ExprStmt) End() token.Pos  { return s.Semicolon + 1 }
+func (s *PrintStmt) End() token.Pos { return s.Semicolon + 1 }
+func (s *VarStmt) End() token.Pos   { return s.Semicolon + 1 }
+func (s *BlockStmt) End() token.Pos {
+	if s.Rbrace.IsValid() {
+		return s.Rbrace + 1
+	}
+	if n := len(s.List); n > 0 {
+		return s.List[n-1].End()
+	}
+	return s.Lbrace + 1
+}
+func (s *IfStmt) End() token.Pos {
+	if s.Else != nil {
+		return s.Else.End()
+	}
+	return s.Body.End()
+}
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -271,6 +298,7 @@ func (*ExprStmt) stmtNode()  {}
 func (*PrintStmt) stmtNode() {}
 func (*VarStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode() {}
+func (*IfStmt) stmtNode()    {}
 
 // Call the appropriate visitor method on v.
 //
@@ -311,6 +339,12 @@ func stmtAcceptVisitor(e Stmt, v interface{}) {
 		n, ok := v.(BlockStmtVisitor)
 		if ok {
 			n.VisitBlockStmt(t)
+			return
+		}
+	case *IfStmt:
+		n, ok := v.(IfStmtVisitor)
+		if ok {
+			n.VisitIfStmt(t)
 			return
 		}
 	}
@@ -504,14 +538,59 @@ func (p *parser) parseExprStmt() Stmt {
 	return &ExprStmt{X: x, Semicolon: end}
 }
 
-func (p *parser) parseBlock() Stmt {
-	lbrace := p.expect(token.LBRACE)
-	r := make([]Stmt, 0)
-	for p.cur().Type != token.EOF && p.cur().Type != token.RBRACE {
-		r = append(r, p.parseDecl())
+// ----------------------------------------------------------------------------
+// Blocks
+
+func (p *parser) parseStmtList() (list []Stmt) {
+	if p.trace {
+		defer un(trace(p, "StatementList"))
 	}
+
+	for p.cur().Type != token.EOF && p.cur().Type != token.RBRACE {
+		list = append(list, p.parseDecl())
+	}
+	return
+}
+
+func (p *parser) parseBlockStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "BlockStmt"))
+	}
+
+	lbrace := p.expect(token.LBRACE)
+	r := p.parseStmtList()
 	rbrace := p.expect(token.RBRACE)
 	return &BlockStmt{Lbrace: lbrace, List: r, Rbrace: rbrace}
+}
+
+func (p *parser) parseCond() Expr {
+	lparen := p.cur()
+	p.expect(token.LPAREN)
+	if lparen.Type != token.LPAREN {
+		return &BadExpr{From: lparen.Pos, To: p.cur().Pos}
+	}
+	cond := p.parseExpr()
+	rparen := p.cur()
+	p.expect(token.RPAREN)
+	if rparen.Type != token.RPAREN {
+		return &BadExpr{From: lparen.Pos, To: p.cur().Pos}
+	}
+	return cond
+}
+
+func (p *parser) parseIfStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "IfStmt"))
+	}
+	pos := p.expect(token.IF)
+	cond := p.parseCond()
+	body := p.parseStmt()
+	var else_ Stmt
+	if p.cur().Type == token.ELSE {
+		p.expect(token.ELSE)
+		else_ = p.parseStmt()
+	}
+	return &IfStmt{If: pos, Cond: cond, Body: body, Else: else_}
 }
 
 func (p *parser) parseStmt() Stmt {
@@ -523,7 +602,9 @@ func (p *parser) parseStmt() Stmt {
 	case token.PRINT:
 		return p.parsePrintStmt()
 	case token.LBRACE:
-		return p.parseBlock()
+		return p.parseBlockStmt()
+	case token.IF:
+		return p.parseIfStmt()
 	default:
 		return p.parseExprStmt()
 	}
@@ -551,11 +632,7 @@ func (p *parser) parseDecl() Stmt {
 }
 
 func (p *parser) parseProgram() ([]Stmt, error) {
-	r := make([]Stmt, 0)
-	for p.next(); p.cur().Type != token.EOF; {
-		r = append(r, p.parseDecl())
-	}
-	return r, p.err()
+	return p.parseStmtList(), p.err()
 }
 
 func ParseExpr(x string) (Expr, error) {
@@ -565,6 +642,7 @@ func ParseExpr(x string) (Expr, error) {
 
 func ParseProgram(x string) ([]Stmt, error) {
 	p := &parser{l: lex(x), trace: false}
+	p.next()
 	return p.parseProgram()
 }
 

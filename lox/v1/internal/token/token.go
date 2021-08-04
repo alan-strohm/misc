@@ -173,6 +173,12 @@ func (t Type) String() string {
 
 type Pos int
 
+const NoPos Pos = 0
+
+func (p Pos) IsValid() bool {
+	return p != NoPos
+}
+
 type Token struct {
 	Type Type
 	Pos  Pos
