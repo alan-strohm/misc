@@ -47,12 +47,24 @@ func (p *exprPrinter) VisitBasicLit(e *parse.BasicLit) {
 	this := p.pushIdent()
 	p.lines = append(p.lines, fmt.Sprintf(`%s [label=%s]`, this, strconv.Quote(e.Value.Val)))
 }
+func (p *exprPrinter) VisitIdent(e *parse.Ident) {
+	this := p.pushIdent()
+	p.lines = append(p.lines, fmt.Sprintf(`%s [label=%s]`, this, e.Tok.Val))
+}
 func (p *exprPrinter) VisitParenExpr(e *parse.ParenExpr) {
 	this := p.pushIdent()
 	parse.ExprAcceptFullVisitor(e.X, p)
 	x := p.popIdent()
 	p.lines = append(p.lines, fmt.Sprintf(`%s [label="()"]`, this))
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
+}
+func (p *exprPrinter) VisitAssign(e *parse.Assign) {
+	this := p.pushIdent()
+	parse.ExprAcceptFullVisitor(e.Value, p)
+	x := p.popIdent()
+	p.lines = append(p.lines, fmt.Sprintf(`%s [label="="]`, this))
+	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
+	p.lines = append(p.lines, fmt.Sprintf(`"%s" -> %s`, e.Name.Val, x))
 }
 
 func ExprToDot(e parse.Expr) string {

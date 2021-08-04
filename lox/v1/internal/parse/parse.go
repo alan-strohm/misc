@@ -57,6 +57,13 @@ type (
 		Rparen token.Pos // position of ")"
 	}
 
+	// An Assign node represents a variable assignment expression
+	//
+	Assign struct {
+		Name  token.Token
+		Value Expr
+	}
+
 	PartialExprVisitor interface {
 		VisitExpr(x Expr)
 	}
@@ -75,12 +82,16 @@ type (
 	ParenExprVisitor interface {
 		VisitParenExpr(x *ParenExpr)
 	}
+	AssignVisitor interface {
+		VisitAssign(x *Assign)
+	}
 	FullExprVisitor interface {
 		IdentVisitor
 		BinaryExprVisitor
 		UnaryExprVisitor
 		BasicLitVisitor
 		ParenExprVisitor
+		AssignVisitor
 	}
 )
 
@@ -131,6 +142,12 @@ func exprAcceptVisitor(e Expr, v interface{}) {
 			n.VisitParenExpr(t)
 			return
 		}
+	case *Assign:
+		n, ok := v.(AssignVisitor)
+		if ok {
+			n.VisitAssign(t)
+			return
+		}
 	}
 	v.(PartialExprVisitor).VisitExpr(e)
 }
@@ -141,6 +158,7 @@ func (x *BasicLit) Pos() token.Pos   { return x.Value.Pos }
 func (x *BinaryExpr) Pos() token.Pos { return x.X.Pos() }
 func (x *ParenExpr) Pos() token.Pos  { return x.Lparen }
 func (x *UnaryExpr) Pos() token.Pos  { return x.Op.Pos }
+func (x *Assign) Pos() token.Pos     { return x.Name.Pos }
 
 func (x *BadExpr) End() token.Pos    { return x.To }
 func (x *Ident) End() token.Pos      { return x.Tok.Pos + token.Pos(len(x.Tok.Val)) }
@@ -148,6 +166,7 @@ func (x *BasicLit) End() token.Pos   { return x.Value.Pos + token.Pos(len(x.Valu
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
 func (x *ParenExpr) End() token.Pos  { return x.Rparen }
 func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
+func (x *Assign) End() token.Pos     { return x.Value.End() }
 
 // exprNode() ensures that only expression/type nodes can be
 // assigned to an Expr.
@@ -158,6 +177,7 @@ func (*BasicLit) exprNode()   {}
 func (*ParenExpr) exprNode()  {}
 func (*UnaryExpr) exprNode()  {}
 func (*BinaryExpr) exprNode() {}
+func (*Assign) exprNode()     {}
 
 // ----------------------------------------------------------------------------
 // Statements
@@ -178,20 +198,32 @@ type (
 	// in a statement list.
 	//
 	ExprStmt struct {
-		X Expr // expression
+		X         Expr      // expression
+		Semicolon token.Pos // Position of the semicolon
 	}
 
 	// A PrintStmt node represents a print statement.
 	//
 	PrintStmt struct {
-		X Expr // expression
+		Print     token.Pos // Position of the "print" keyword.
+		X         Expr      // expression
+		Semicolon token.Pos // Position of the semicolon
 	}
 
 	// A VarStmt node represents a var statement.
 	//
 	VarStmt struct {
-		Name  token.Token
-		Value Expr // initial value; or nil
+		Var       token.Pos // Position of the "var" keyword.
+		Name      token.Token
+		Value     Expr      // initial value; or nil
+		Semicolon token.Pos // Position of the semicolon
+	}
+
+	// A BlockStmt node represents a braced statement list.
+	BlockStmt struct {
+		Lbrace token.Pos // position of "{"
+		List   []Stmt
+		Rbrace token.Pos // position of "}", if any (may be absent due to syntax error)
 	}
 
 	PartialStmtVisitor interface {
@@ -206,10 +238,14 @@ type (
 	VarStmtVisitor interface {
 		VisitVarStmt(x *VarStmt)
 	}
+	BlockStmtVisitor interface {
+		VisitBlockStmt(x *BlockStmt)
+	}
 	FullStmtVisitor interface {
 		ExprStmtVisitor
 		PrintStmtVisitor
 		VarStmtVisitor
+		BlockStmtVisitor
 	}
 )
 
@@ -217,18 +253,15 @@ type (
 
 func (s *BadStmt) Pos() token.Pos   { return s.From }
 func (s *ExprStmt) Pos() token.Pos  { return s.X.Pos() }
-func (s *PrintStmt) Pos() token.Pos { return s.X.Pos() }
-func (s *VarStmt) Pos() token.Pos   { return s.Name.Pos }
+func (s *PrintStmt) Pos() token.Pos { return s.Print }
+func (s *VarStmt) Pos() token.Pos   { return s.Var }
+func (s *BlockStmt) Pos() token.Pos { return s.Lbrace }
 
 func (s *BadStmt) End() token.Pos   { return s.To }
-func (s *ExprStmt) End() token.Pos  { return s.X.End() }
-func (s *PrintStmt) End() token.Pos { return s.X.End() }
-func (s *VarStmt) End() token.Pos {
-	if s.Value != nil {
-		return s.Value.End()
-	}
-	return s.Name.Pos + token.Pos(len(s.Name.Val))
-}
+func (s *ExprStmt) End() token.Pos  { return s.Semicolon }
+func (s *PrintStmt) End() token.Pos { return s.Semicolon }
+func (s *VarStmt) End() token.Pos   { return s.Semicolon }
+func (s *BlockStmt) End() token.Pos { return s.Rbrace }
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -237,6 +270,7 @@ func (*BadStmt) stmtNode()   {}
 func (*ExprStmt) stmtNode()  {}
 func (*PrintStmt) stmtNode() {}
 func (*VarStmt) stmtNode()   {}
+func (*BlockStmt) stmtNode() {}
 
 // Call the appropriate visitor method on v.
 //
@@ -271,6 +305,12 @@ func stmtAcceptVisitor(e Stmt, v interface{}) {
 		n, ok := v.(VarStmtVisitor)
 		if ok {
 			n.VisitVarStmt(t)
+			return
+		}
+	case *BlockStmt:
+		n, ok := v.(BlockStmtVisitor)
+		if ok {
+			n.VisitBlockStmt(t)
 			return
 		}
 	}
@@ -411,6 +451,13 @@ func (p *parser) parseBinaryExpr(prec1 int) Expr {
 		}
 		p.expect(op.Type)
 		y := p.parseBinaryExpr(op.Type.Precedence() + 1)
+		if op.Type == token.ASSIGN {
+			if n, ok := x.(*Ident); ok {
+				return &Assign{Name: n.Tok, Value: y}
+			}
+			p.errorExpected(x.Pos(), "valid lhs expression")
+			return &BadExpr{From: x.Pos(), To: y.End()}
+		}
 		x = &BinaryExpr{X: x, Op: op, Y: y}
 	}
 }
@@ -437,13 +484,15 @@ func (p *parser) parseAndReturnExpr() (Expr, error) {
 	return p.parseExpr(), p.err()
 }
 
+// Parse a print statement.
 func (p *parser) parsePrintStmt() Stmt {
 	if p.trace {
 		defer un(trace(p, "PrintStmt"))
 	}
+	pos := p.expect(token.PRINT)
 	x := p.parseExpr()
-	p.expect(token.SEMICOLON)
-	return &PrintStmt{X: x}
+	end := p.expect(token.SEMICOLON)
+	return &PrintStmt{Print: pos, X: x, Semicolon: end}
 }
 
 func (p *parser) parseExprStmt() Stmt {
@@ -451,8 +500,18 @@ func (p *parser) parseExprStmt() Stmt {
 		defer un(trace(p, "ExprStmt"))
 	}
 	x := p.parseExpr()
-	p.expect(token.SEMICOLON)
-	return &ExprStmt{X: x}
+	end := p.expect(token.SEMICOLON)
+	return &ExprStmt{X: x, Semicolon: end}
+}
+
+func (p *parser) parseBlock() Stmt {
+	lbrace := p.expect(token.LBRACE)
+	r := make([]Stmt, 0)
+	for p.cur().Type != token.EOF && p.cur().Type != token.RBRACE {
+		r = append(r, p.parseDecl())
+	}
+	rbrace := p.expect(token.RBRACE)
+	return &BlockStmt{Lbrace: lbrace, List: r, Rbrace: rbrace}
 }
 
 func (p *parser) parseStmt() Stmt {
@@ -462,8 +521,9 @@ func (p *parser) parseStmt() Stmt {
 
 	switch p.cur().Type {
 	case token.PRINT:
-		p.next()
 		return p.parsePrintStmt()
+	case token.LBRACE:
+		return p.parseBlock()
 	default:
 		return p.parseExprStmt()
 	}
@@ -473,24 +533,26 @@ func (p *parser) parseDecl() Stmt {
 		defer un(trace(p, "Decl"))
 	}
 	if p.cur().Type == token.VAR {
-		p.expect(token.VAR)
+		pos := p.expect(token.VAR)
 		n := p.cur()
 		p.expect(token.IDENT)
 		if n.Type != token.IDENT {
-			return &BadStmt{}
+			return &BadStmt{From: pos, To: n.Pos + token.Pos(len(n.Val))}
 		}
+		var e Expr
 		if p.cur().Type == token.ASSIGN {
 			p.next()
-			return &VarStmt{Name: n, Value: p.parseExpr()}
+			e = p.parseExpr()
 		}
-		return &VarStmt{Name: n, Value: nil}
+		end := p.expect(token.SEMICOLON)
+		return &VarStmt{Var: pos, Name: n, Value: e, Semicolon: end}
 	}
 	return p.parseStmt()
 }
 
 func (p *parser) parseProgram() ([]Stmt, error) {
 	r := make([]Stmt, 0)
-	for p.next(); p.cur().Type != token.EOF; p.next() {
+	for p.next(); p.cur().Type != token.EOF; {
 		r = append(r, p.parseDecl())
 	}
 	return r, p.err()

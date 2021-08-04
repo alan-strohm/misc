@@ -139,10 +139,37 @@ func isEqual(x, y *Value) bool {
 	return x.v == y.v
 }
 
+type env struct {
+	stack []map[string]*Value
+}
+
+func (e *env) push() {
+	e.stack = append(e.stack, make(map[string]*Value))
+}
+func (e *env) pop() {
+	e.stack = e.stack[0 : len(e.stack)-1]
+}
+func (e *env) peek() map[string]*Value {
+	return e.stack[len(e.stack)-1]
+}
+
+func (e *env) define(id string, v *Value) {
+	e.peek()[id] = v
+}
+
+func (e *env) lookup(id string) *Value {
+	for i := len(e.stack) - 1; i >= 0; i-- {
+		if v, ok := e.stack[i][id]; ok {
+			return v
+		}
+	}
+	return nil
+}
+
 type Interpreter struct {
 	stack  []*Value
 	errors []error
-	env    map[string]*Value
+	env    env
 }
 
 func (i *Interpreter) push(v *Value) {
@@ -207,12 +234,23 @@ func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 }
 
 func (i *Interpreter) VisitIdent(x *parse.Ident) {
-	v, ok := i.env[x.Tok.Val]
-	if !ok {
+	v := i.env.lookup(x.Tok.Val)
+	if v == nil {
 		i.push(newError(x.Tok, "reference to undefined identifier '%s'", x.Tok.Val))
 		return
 	}
 	i.push(v)
+}
+
+func (i *Interpreter) VisitAssign(x *parse.Assign) {
+	lhs := i.env.lookup(x.Name.Val)
+	if lhs == nil {
+		i.push(newError(x.Name, "assignment to undefined identifier '%s'", x.Name.Val))
+		return
+	}
+	rhs := i.evaluate(x.Value)
+	*lhs = *rhs
+	i.push(lhs)
 }
 
 func (i *Interpreter) VisitExprStmt(x *parse.ExprStmt) {
@@ -231,7 +269,23 @@ func (i *Interpreter) VisitVarStmt(x *parse.VarStmt) {
 	if x.Value != nil {
 		v = i.evaluate(x.Value)
 	}
-	i.env[x.Name.Val] = v
+	i.env.define(x.Name.Val, v)
+}
+
+func (i *Interpreter) executeBlock(block []parse.Stmt) error {
+	for _, s := range block {
+		if err := i.execute(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i *Interpreter) VisitBlockStmt(x *parse.BlockStmt) {
+	i.env.push()
+	defer i.env.pop()
+
+	_ = i.executeBlock(x.List)
 }
 
 func (i *Interpreter) execute(x parse.Stmt) error {
@@ -250,7 +304,9 @@ func (i *Interpreter) err() error {
 }
 
 func New() *Interpreter {
-	return &Interpreter{env: make(map[string]*Value)}
+	i := &Interpreter{}
+	i.env.push()
+	return i
 }
 
 func InterpretExpr(e parse.Expr) (*Value, error) {
@@ -259,10 +315,5 @@ func InterpretExpr(e parse.Expr) (*Value, error) {
 }
 
 func (i *Interpreter) Interpret(program []parse.Stmt) error {
-	for _, s := range program {
-		if err := i.execute(s); err != nil {
-			return err
-		}
-	}
-	return nil
+	return i.executeBlock(program)
 }
