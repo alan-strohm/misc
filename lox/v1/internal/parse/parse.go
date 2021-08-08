@@ -485,22 +485,46 @@ func (p *parser) parseBinaryExpr(prec1 int) Expr {
 		}
 		p.expect(op.Type)
 		y := p.parseBinaryExpr(op.Type.Precedence() + 1)
-		if op.Type == token.ASSIGN {
-			if n, ok := x.(*Ident); ok {
-				return &Assign{Name: n.Tok, Value: y}
-			}
+		x = &BinaryExpr{X: x, Op: op, Y: y}
+	}
+}
+
+/*
+func (p *parser) getAssign(x, y Expr) Expr {
+	switch lhs := x.(type) {
+	case Ident:
+		return &Assign{Name: lhs.Tok, Value: y}
+	case Assign:
+		x = &Assign{Name: lhs.Name
+	}
+	if n, ok := x.(*Ident); ok {
+	} else {
+		p.errorExpected(x.Pos(), "valid lhs expression")
+		return &BadExpr{From: x.Pos(), To: y.End()}
+	}
+}
+*/
+
+func (p *parser) parseAssign() Expr {
+	x := p.parseBinaryExpr(token.LowestPrec + 1)
+	if p.cur().Type == token.ASSIGN {
+		p.expect(token.ASSIGN)
+		y := p.parseAssign()
+		if lhs, ok := x.(*Ident); ok {
+			return &Assign{Name: lhs.Tok, Value: y}
+		} else {
 			p.errorExpected(x.Pos(), "valid lhs expression")
 			return &BadExpr{From: x.Pos(), To: y.End()}
 		}
-		x = &BinaryExpr{X: x, Op: op, Y: y}
 	}
+	return x
 }
 
 func (p *parser) parseExpr() Expr {
 	if p.trace {
 		defer un(trace(p, "Expr"))
 	}
-	return p.parseBinaryExpr(token.LowestPrec + 1)
+	return p.parseAssign()
 }
 
 func (p *parser) err() error {
