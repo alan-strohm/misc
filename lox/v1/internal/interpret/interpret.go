@@ -3,6 +3,7 @@ package interpret
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 	"github.com/alan-strohm/misc/lox/v1/internal/token"
@@ -211,12 +212,7 @@ func (i *Interpreter) VisitUnaryExpr(e *parse.UnaryExpr) {
 func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 	switch e.Value.Type {
 	case token.STRING:
-		s, err := strconv.Unquote(e.Value.Val)
-		if err == nil {
-			i.push(newValue(s))
-		} else {
-			i.push(newError(e.Value, "invalid string: %s", err))
-		}
+		i.push(newValue(strings.Replace(e.Value.Val, "\"", "", -1)))
 	case token.NUMBER:
 		f, err := strconv.ParseFloat(e.Value.Val, 64)
 		if err == nil {
