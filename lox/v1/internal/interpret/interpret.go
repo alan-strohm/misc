@@ -25,7 +25,12 @@ type Value struct {
 }
 
 func (v *Value) String() string {
-	return fmt.Sprintf("%v", v.v)
+	switch v.v.(type) {
+	case nil:
+		return "nil"
+	default:
+		return fmt.Sprintf("%v", v.v)
+	}
 }
 
 func newError(op token.Token, format string, args ...interface{}) *Value {
@@ -202,7 +207,7 @@ func (i *Interpreter) VisitBinaryExpr(e *parse.BinaryExpr) {
 	x := i.evaluate(e.X)
 	// Short-circuit logical operators.
 	if (e.Op.Type == token.OR && x.isTruthy()) ||
-		(e.Op.Type == token.ADD && !x.isTruthy()) {
+		(e.Op.Type == token.AND && !x.isTruthy()) {
 		i.push(x)
 		return
 	}
