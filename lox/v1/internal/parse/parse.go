@@ -241,6 +241,15 @@ type (
 		Body  Stmt
 	}
 
+	// A ForStmt node represents a for statement.
+	ForStmt struct {
+		For  token.Pos // position of "for" keyword
+		Init Stmt      // VarStmt or ExprStmt or nil
+		Cond Expr      // condition or nil
+		Post Expr      // increment expression or nil
+		Body Stmt
+	}
+
 	PartialStmtVisitor interface {
 		VisitStmt(x Stmt)
 	}
@@ -262,6 +271,9 @@ type (
 	WhileStmtVisitor interface {
 		VisitWhileStmt(x *WhileStmt)
 	}
+	ForStmtVisitor interface {
+		VisitForStmt(x *ForStmt)
+	}
 	FullStmtVisitor interface {
 		ExprStmtVisitor
 		PrintStmtVisitor
@@ -269,6 +281,7 @@ type (
 		BlockStmtVisitor
 		IfStmtVisitor
 		WhileStmtVisitor
+		ForStmtVisitor
 	}
 )
 
@@ -281,6 +294,7 @@ func (s *VarStmt) Pos() token.Pos   { return s.Var }
 func (s *BlockStmt) Pos() token.Pos { return s.Lbrace }
 func (s *IfStmt) Pos() token.Pos    { return s.If }
 func (s *WhileStmt) Pos() token.Pos { return s.While }
+func (s *ForStmt) Pos() token.Pos   { return s.For }
 
 func (s *BadStmt) End() token.Pos   { return s.To }
 func (s *ExprStmt) End() token.Pos  { return s.Semicolon + 1 }
@@ -302,6 +316,7 @@ func (s *IfStmt) End() token.Pos {
 	return s.Body.End()
 }
 func (s *WhileStmt) End() token.Pos { return s.Body.End() }
+func (s *ForStmt) End() token.Pos   { return s.Body.End() }
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -313,6 +328,7 @@ func (*VarStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode() {}
 func (*IfStmt) stmtNode()    {}
 func (*WhileStmt) stmtNode() {}
+func (*ForStmt) stmtNode()   {}
 
 // Call the appropriate visitor method on v.
 //
@@ -365,6 +381,12 @@ func stmtAcceptVisitor(e Stmt, v interface{}) {
 		n, ok := v.(WhileStmtVisitor)
 		if ok {
 			n.VisitWhileStmt(t)
+			return
+		}
+	case *ForStmt:
+		n, ok := v.(ForStmtVisitor)
+		if ok {
+			n.VisitForStmt(t)
 			return
 		}
 	}
@@ -509,22 +531,6 @@ func (p *parser) parseBinaryExpr(prec1 int) Expr {
 	}
 }
 
-/*
-func (p *parser) getAssign(x, y Expr) Expr {
-	switch lhs := x.(type) {
-	case Ident:
-		return &Assign{Name: lhs.Tok, Value: y}
-	case Assign:
-		x = &Assign{Name: lhs.Name
-	}
-	if n, ok := x.(*Ident); ok {
-	} else {
-		p.errorExpected(x.Pos(), "valid lhs expression")
-		return &BadExpr{From: x.Pos(), To: y.End()}
-	}
-}
-*/
-
 func (p *parser) parseAssign() Expr {
 	x := p.parseBinaryExpr(token.LowestPrec + 1)
 	if p.cur().Type == token.ASSIGN {
@@ -608,17 +614,9 @@ func (p *parser) parseBlockStmt() Stmt {
 }
 
 func (p *parser) parseCond() Expr {
-	lparen := p.cur()
 	p.expect(token.LPAREN)
-	if lparen.Type != token.LPAREN {
-		return &BadExpr{From: lparen.Pos, To: p.cur().Pos}
-	}
 	cond := p.parseExpr()
-	rparen := p.cur()
 	p.expect(token.RPAREN)
-	if rparen.Type != token.RPAREN {
-		return &BadExpr{From: lparen.Pos, To: p.cur().Pos}
-	}
 	return cond
 }
 
@@ -661,30 +659,68 @@ func (p *parser) parseStmt() Stmt {
 		return p.parseIfStmt()
 	case token.WHILE:
 		return p.parseWhileStmt()
+	case token.FOR:
+		return p.parseForStmt()
 	default:
 		return p.parseExprStmt()
 	}
 }
+
+func (p *parser) parseVar() Stmt {
+	if p.trace {
+		defer un(trace(p, "Var"))
+	}
+	pos := p.expect(token.VAR)
+	n := p.cur()
+	p.expect(token.IDENT)
+	var e Expr
+	if p.cur().Type == token.ASSIGN {
+		p.next()
+		e = p.parseExpr()
+	}
+	end := p.expect(token.SEMICOLON)
+	return &VarStmt{Var: pos, Name: n, Value: e, Semicolon: end}
+}
+
 func (p *parser) parseDecl() Stmt {
 	if p.trace {
 		defer un(trace(p, "Decl"))
 	}
 	if p.cur().Type == token.VAR {
-		pos := p.expect(token.VAR)
-		n := p.cur()
-		p.expect(token.IDENT)
-		if n.Type != token.IDENT {
-			return &BadStmt{From: pos, To: n.Pos + token.Pos(len(n.Val))}
-		}
-		var e Expr
-		if p.cur().Type == token.ASSIGN {
-			p.next()
-			e = p.parseExpr()
-		}
-		end := p.expect(token.SEMICOLON)
-		return &VarStmt{Var: pos, Name: n, Value: e, Semicolon: end}
+		return p.parseVar()
 	}
 	return p.parseStmt()
+}
+
+func (p *parser) parseForStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "ForStmt"))
+	}
+	pos := p.expect(token.FOR)
+	p.expect(token.LPAREN)
+
+	var init Stmt
+	if p.cur().Type == token.SEMICOLON {
+		p.expect(token.SEMICOLON)
+	} else if p.cur().Type == token.VAR {
+		init = p.parseDecl()
+	} else {
+		init = p.parseExprStmt()
+	}
+
+	var cond Expr
+	if p.cur().Type != token.SEMICOLON {
+		cond = p.parseExpr()
+	}
+	p.expect(token.SEMICOLON)
+
+	var post Expr
+	if p.cur().Type != token.RPAREN {
+		post = p.parseExpr()
+	}
+	p.expect(token.RPAREN)
+	body := p.parseStmt()
+	return &ForStmt{For: pos, Init: init, Cond: cond, Post: post, Body: body}
 }
 
 func (p *parser) parseProgram() ([]Stmt, error) {

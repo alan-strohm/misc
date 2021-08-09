@@ -308,6 +308,31 @@ func (i *Interpreter) VisitWhileStmt(x *parse.WhileStmt) {
 	}
 }
 
+func (i *Interpreter) VisitForStmt(x *parse.ForStmt) {
+	i.env.push()
+	defer i.env.pop()
+
+	init := func() {
+		if x.Init != nil {
+			i.execute(x.Init)
+		}
+	}
+	cond := func() bool {
+		if x.Cond == nil {
+			return true
+		}
+		return i.evaluate(x.Cond).isTruthy()
+	}
+	post := func() {
+		if x.Post != nil {
+			i.evaluate(x.Post)
+		}
+	}
+	for init(); cond(); post() {
+		i.execute(x.Body)
+	}
+}
+
 func (i *Interpreter) execute(x parse.Stmt) error {
 	parse.StmtAcceptFullVisitor(x, i)
 	return i.err()
