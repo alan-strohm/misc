@@ -234,6 +234,13 @@ type (
 		Else Stmt // else branch; or nil
 	}
 
+	// A WhileStmt node represents a while statement.
+	WhileStmt struct {
+		While token.Pos // position of "while" keyword
+		Cond  Expr      // condition
+		Body  Stmt
+	}
+
 	PartialStmtVisitor interface {
 		VisitStmt(x Stmt)
 	}
@@ -252,12 +259,16 @@ type (
 	IfStmtVisitor interface {
 		VisitIfStmt(x *IfStmt)
 	}
+	WhileStmtVisitor interface {
+		VisitWhileStmt(x *WhileStmt)
+	}
 	FullStmtVisitor interface {
 		ExprStmtVisitor
 		PrintStmtVisitor
 		VarStmtVisitor
 		BlockStmtVisitor
 		IfStmtVisitor
+		WhileStmtVisitor
 	}
 )
 
@@ -269,6 +280,7 @@ func (s *PrintStmt) Pos() token.Pos { return s.Print }
 func (s *VarStmt) Pos() token.Pos   { return s.Var }
 func (s *BlockStmt) Pos() token.Pos { return s.Lbrace }
 func (s *IfStmt) Pos() token.Pos    { return s.If }
+func (s *WhileStmt) Pos() token.Pos { return s.While }
 
 func (s *BadStmt) End() token.Pos   { return s.To }
 func (s *ExprStmt) End() token.Pos  { return s.Semicolon + 1 }
@@ -289,6 +301,7 @@ func (s *IfStmt) End() token.Pos {
 	}
 	return s.Body.End()
 }
+func (s *WhileStmt) End() token.Pos { return s.Body.End() }
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -299,6 +312,7 @@ func (*PrintStmt) stmtNode() {}
 func (*VarStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode() {}
 func (*IfStmt) stmtNode()    {}
+func (*WhileStmt) stmtNode() {}
 
 // Call the appropriate visitor method on v.
 //
@@ -345,6 +359,12 @@ func stmtAcceptVisitor(e Stmt, v interface{}) {
 		n, ok := v.(IfStmtVisitor)
 		if ok {
 			n.VisitIfStmt(t)
+			return
+		}
+	case *WhileStmt:
+		n, ok := v.(WhileStmtVisitor)
+		if ok {
+			n.VisitWhileStmt(t)
 			return
 		}
 	}
@@ -602,6 +622,16 @@ func (p *parser) parseCond() Expr {
 	return cond
 }
 
+func (p *parser) parseWhileStmt() Stmt {
+	if p.trace {
+		defer un(trace(p, "WhileStmt"))
+	}
+	pos := p.expect(token.WHILE)
+	cond := p.parseCond()
+	body := p.parseStmt()
+	return &WhileStmt{While: pos, Cond: cond, Body: body}
+}
+
 func (p *parser) parseIfStmt() Stmt {
 	if p.trace {
 		defer un(trace(p, "IfStmt"))
@@ -629,6 +659,8 @@ func (p *parser) parseStmt() Stmt {
 		return p.parseBlockStmt()
 	case token.IF:
 		return p.parseIfStmt()
+	case token.WHILE:
+		return p.parseWhileStmt()
 	default:
 		return p.parseExprStmt()
 	}

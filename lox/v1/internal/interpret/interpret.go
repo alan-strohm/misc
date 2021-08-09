@@ -295,14 +295,16 @@ func (i *Interpreter) VisitBlockStmt(x *parse.BlockStmt) {
 }
 
 func (i *Interpreter) VisitIfStmt(x *parse.IfStmt) {
-	cond := i.evaluate(x.Cond)
-	if cond.err() != nil {
-		return
-	}
-	if cond.isTruthy() {
+	if i.evaluate(x.Cond).isTruthy() {
 		i.execute(x.Body)
 	} else if x.Else != nil {
 		i.execute(x.Else)
+	}
+}
+
+func (i *Interpreter) VisitWhileStmt(x *parse.WhileStmt) {
+	for i.evaluate(x.Cond).isTruthy() {
+		i.execute(x.Body)
 	}
 }
 
