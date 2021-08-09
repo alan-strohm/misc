@@ -115,20 +115,24 @@ var tokens = [...]string{
 
 const (
 	LowestPrec  = 0
-	UnaryPrec   = 6
-	HighestPrec = 7
+	UnaryPrec   = 7
+	HighestPrec = 8
 )
 
 func (t Type) Precedence() int {
 	switch t {
-	case EQL, NEQ:
+	case OR:
+		return 1
+	case AND:
 		return 2
-	case GTR, LSS, GEQ, LEQ:
+	case EQL, NEQ:
 		return 3
-	case ADD, SUB:
+	case GTR, LSS, GEQ, LEQ:
 		return 4
-	case MUL, QUO:
+	case ADD, SUB:
 		return 5
+	case MUL, QUO:
+		return 6
 	}
 	return LowestPrec
 }

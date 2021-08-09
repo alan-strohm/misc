@@ -200,7 +200,17 @@ func (i *Interpreter) VisitParenExpr(e *parse.ParenExpr) {
 
 func (i *Interpreter) VisitBinaryExpr(e *parse.BinaryExpr) {
 	x := i.evaluate(e.X)
+	// Short-circuit logical operators.
+	if (e.Op.Type == token.OR && x.isTruthy()) ||
+		(e.Op.Type == token.ADD && !x.isTruthy()) {
+		i.push(x)
+		return
+	}
 	y := i.evaluate(e.Y)
+	if e.Op.Type == token.OR || e.Op.Type == token.AND {
+		i.push(y)
+		return
+	}
 	i.push(x.binary(e.Op, y))
 }
 
