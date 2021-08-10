@@ -19,14 +19,14 @@ var interpreter = interpret.New()
 func run(code string) error {
 	p, err := parse.ParseProgram(code)
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing error: %s", err)
 	}
 	if *dotF != "" {
 		out := dot.ProgToDot(p)
 		os.WriteFile(*dotF, []byte(out), 0666)
 	}
 	if err := interpreter.Interpret(p); err != nil {
-		return err
+		return fmt.Errorf("runtime error: %s", err)
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ func runPrompt() error {
 			break
 		}
 		if err := run(scanner.Text()); err != nil {
-			fmt.Printf("error: %s\n", err)
+			fmt.Println(err)
 		}
 	}
 	return scanner.Err()

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alan-strohm/misc/lox/v1/internal/parse"
+	"github.com/alan-strohm/misc/lox/v1/internal/ast"
 	"github.com/alan-strohm/misc/lox/v1/internal/token"
 )
 
@@ -40,15 +40,21 @@ func newError(pos token.Pos, format string, args ...interface{}) *Value {
 		v: fmt.Errorf("pos %d: %s", pos, fmt.Sprintf(format, args...))}
 }
 
-type callable interface {
-	call(*Interpreter, []*Value) *Value
-	arity() int
+type callable struct {
+	arity int
+	impl  func([]*Value) *Value
+	env   *env
+	name  string
+}
+
+func (c callable) String() string {
+	if c.name == "" {
+		return "<native fn>"
+	}
+	return fmt.Sprintf("<fn %s>", c.name)
 }
 
 func newValue(v interface{}) *Value {
-	if _, ok := v.(callable); ok {
-		return &Value{v: v, t: CALLABLE}
-	}
 	switch v.(type) {
 	case bool:
 		return &Value{v: v, t: BOOL}
@@ -58,8 +64,10 @@ func newValue(v interface{}) *Value {
 		return &Value{v: v, t: STRING}
 	case nil:
 		return &Value{v: v, t: NIL}
+	case callable:
+		return &Value{v: v, t: CALLABLE}
 	default:
-		return &Value{v: fmt.Errorf("unexpected type %v", v), t: ERROR}
+		return &Value{v: fmt.Errorf("unexpected type %#v", v), t: ERROR}
 	}
 }
 
@@ -156,49 +164,52 @@ func isEqual(x, y *Value) bool {
 }
 
 type env struct {
-	stack []map[string]*Value
+	parent *env
+	ids    map[string]*Value
 }
 
-func (e *env) push() {
-	e.stack = append(e.stack, make(map[string]*Value))
-}
-func (e *env) pop() {
-	e.stack = e.stack[0 : len(e.stack)-1]
-}
-func (e *env) peek() map[string]*Value {
-	return e.stack[len(e.stack)-1]
+func newEnv(parent *env) *env {
+	return &env{parent: parent, ids: make(map[string]*Value)}
 }
 
 func (e *env) define(id string, v *Value) {
-	e.peek()[id] = v
+	c := *v
+	e.ids[id] = &c
 }
 
 func (e *env) lookup(id string) *Value {
-	for i := len(e.stack) - 1; i >= 0; i-- {
-		if v, ok := e.stack[i][id]; ok {
-			return v
-		}
+	v, ok := e.ids[id]
+	if ok {
+		return v
 	}
-	return nil
+	if e.parent == nil {
+		return nil
+	}
+	return e.parent.lookup(id)
 }
 
-type clock struct{}
-
-func (c clock) call(_ *Interpreter, _ []*Value) *Value {
-	return newValue(float64(time.Now().UnixNano()) / 1e9)
+func (e *env) String() string {
+	return fmt.Sprintf("%#v\n  %s", e.ids, e.parent)
 }
-func (c clock) arity() int { return 0 }
 
-func globals() (r env) {
-	r.push()
-	r.peek()["clock"] = newValue(&clock{})
-	return
+var globals = newEnv(nil)
+
+func init() {
+	globals.define("clock", newValue(callable{arity: 0, impl: func(_ []*Value) *Value {
+		return newValue(float64(time.Now().UnixNano()) / 1e9)
+	}}))
 }
 
 type Interpreter struct {
 	stack  []*Value
 	errors []error
-	env    env
+	env    *env
+	ret    *Value // nil unless we are returning..
+}
+
+// Should we break any current loop?
+func (i *Interpreter) shouldBreak() bool {
+	return i.ret != nil || i.err() != nil
 }
 
 func (i *Interpreter) push(v *Value) {
@@ -213,8 +224,8 @@ func (i *Interpreter) pop() *Value {
 	return r
 }
 
-func (i *Interpreter) evaluate(e parse.Expr) *Value {
-	parse.ExprAcceptFullVisitor(e, i)
+func (i *Interpreter) evaluate(e ast.Expr) *Value {
+	ast.ExprAcceptFullVisitor(e, i)
 	r := i.pop()
 	if r.err() != nil {
 		i.errors = append(i.errors, r.err())
@@ -222,11 +233,11 @@ func (i *Interpreter) evaluate(e parse.Expr) *Value {
 	return r
 }
 
-func (i *Interpreter) VisitParenExpr(e *parse.ParenExpr) {
-	parse.ExprAcceptFullVisitor(e.X, i)
+func (i *Interpreter) VisitParenExpr(e *ast.ParenExpr) {
+	ast.ExprAcceptFullVisitor(e.X, i)
 }
 
-func (i *Interpreter) VisitBinaryExpr(e *parse.BinaryExpr) {
+func (i *Interpreter) VisitBinaryExpr(e *ast.BinaryExpr) {
 	x := i.evaluate(e.X)
 	// Short-circuit logical operators.
 	if (e.Op.Type == token.OR && x.isTruthy()) ||
@@ -242,32 +253,43 @@ func (i *Interpreter) VisitBinaryExpr(e *parse.BinaryExpr) {
 	i.push(x.binary(e.Op, y))
 }
 
-func (i *Interpreter) VisitUnaryExpr(e *parse.UnaryExpr) {
+func (i *Interpreter) VisitUnaryExpr(e *ast.UnaryExpr) {
 	v := i.evaluate(e.X)
 	i.push(v.unary(e.Op))
 }
 
-func (i *Interpreter) VisitCallExpr(e *parse.CallExpr) {
+func (i *Interpreter) setEnv(e *env) (out *env) {
+	out, i.env = i.env, e
+	return
+}
+
+func (i *Interpreter) restoreEnv(e *env) {
+	i.env = e
+}
+
+func (i *Interpreter) VisitCallExpr(e *ast.CallExpr) {
 	fun, ok := i.evaluate(e.Fun).v.(callable)
 	if !ok {
 		i.push(newError(e.Lparen, "Can only call functions and classes."))
 		return
 	}
-	if fun.arity() != len(e.Args) {
-		i.push(newError(e.Rparen, fmt.Sprintf("expected %d args to function call, got %d", fun.arity(), len(e.Args))))
+	if fun.arity != len(e.Args) {
+		i.push(newError(e.Rparen, fmt.Sprintf("expected %d args to function call, got %d", fun.arity, len(e.Args))))
 		return
 	}
+
 	args := make([]*Value, len(e.Args))
 	for ix, arg := range e.Args {
 		args[ix] = i.evaluate(arg)
 		if args[ix].err() != nil {
+			i.push(args[ix])
 			return
 		}
 	}
-	i.push(fun.call(i, args))
+	i.push(fun.impl(args))
 }
 
-func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
+func (i *Interpreter) VisitBasicLit(e *ast.BasicLit) {
 	switch e.Value.Type {
 	case token.STRING:
 		i.push(newValue(strings.Replace(e.Value.Val, "\"", "", -1)))
@@ -287,7 +309,7 @@ func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 	}
 }
 
-func (i *Interpreter) VisitIdent(x *parse.Ident) {
+func (i *Interpreter) VisitIdent(x *ast.Ident) {
 	v := i.env.lookup(x.Tok.Val)
 	if v == nil {
 		i.push(newError(x.Tok.Pos, "reference to undefined identifier '%s'", x.Tok.Val))
@@ -296,7 +318,7 @@ func (i *Interpreter) VisitIdent(x *parse.Ident) {
 	i.push(v)
 }
 
-func (i *Interpreter) VisitAssign(x *parse.Assign) {
+func (i *Interpreter) VisitAssign(x *ast.Assign) {
 	lhs := i.env.lookup(x.Name.Val)
 	if lhs == nil {
 		i.push(newError(x.Name.Pos, "assignment to undefined identifier '%s'", x.Name.Val))
@@ -307,18 +329,18 @@ func (i *Interpreter) VisitAssign(x *parse.Assign) {
 	i.push(lhs)
 }
 
-func (i *Interpreter) VisitExprStmt(x *parse.ExprStmt) {
+func (i *Interpreter) VisitExprStmt(x *ast.ExprStmt) {
 	i.evaluate(x.X)
 }
 
-func (i *Interpreter) VisitPrintStmt(x *parse.PrintStmt) {
+func (i *Interpreter) VisitPrintStmt(x *ast.PrintStmt) {
 	v := i.evaluate(x.X)
 	if len(i.errors) == 0 {
 		fmt.Println(v)
 	}
 }
 
-func (i *Interpreter) VisitVarStmt(x *parse.VarStmt) {
+func (i *Interpreter) VisitVarDecl(x *ast.VarDecl) {
 	v := newValue(nil)
 	if x.Value != nil {
 		v = i.evaluate(x.Value)
@@ -326,23 +348,34 @@ func (i *Interpreter) VisitVarStmt(x *parse.VarStmt) {
 	i.env.define(x.Name.Val, v)
 }
 
-func (i *Interpreter) executeBlock(block []parse.Stmt) error {
-	for _, s := range block {
-		if err := i.execute(s); err != nil {
-			return err
-		}
-	}
-	return nil
+func (i *Interpreter) VisitFunDecl(x *ast.FunDecl) {
+	closure := i.env
+	i.env.define(x.Name.Val, newValue(callable{
+		arity: len(x.Params),
+		name:  x.Name.Val,
+		impl: func(args []*Value) *Value {
+			return i.executeFunction(x, args, closure)
+		}}))
 }
 
-func (i *Interpreter) VisitBlockStmt(x *parse.BlockStmt) {
-	i.env.push()
-	defer i.env.pop()
+func (i *Interpreter) executeBlock(block []ast.Stmt) error {
+	for _, s := range block {
+		i.execute(s)
+		if i.shouldBreak() {
+			return i.err()
+		}
+	}
+	return i.err()
+}
+
+func (i *Interpreter) VisitBlockStmt(x *ast.BlockStmt) {
+	oldEnv := i.setEnv(newEnv(i.env))
+	defer i.restoreEnv(oldEnv)
 
 	_ = i.executeBlock(x.List)
 }
 
-func (i *Interpreter) VisitIfStmt(x *parse.IfStmt) {
+func (i *Interpreter) VisitIfStmt(x *ast.IfStmt) {
 	if i.evaluate(x.Cond).isTruthy() {
 		i.execute(x.Body)
 	} else if x.Else != nil {
@@ -350,15 +383,15 @@ func (i *Interpreter) VisitIfStmt(x *parse.IfStmt) {
 	}
 }
 
-func (i *Interpreter) VisitWhileStmt(x *parse.WhileStmt) {
-	for i.evaluate(x.Cond).isTruthy() {
+func (i *Interpreter) VisitWhileStmt(x *ast.WhileStmt) {
+	for i.evaluate(x.Cond).isTruthy() && !i.shouldBreak() {
 		i.execute(x.Body)
 	}
 }
 
-func (i *Interpreter) VisitForStmt(x *parse.ForStmt) {
-	i.env.push()
-	defer i.env.pop()
+func (i *Interpreter) VisitForStmt(x *ast.ForStmt) {
+	oldEnv := i.setEnv(newEnv(i.env))
+	defer i.restoreEnv(oldEnv)
 
 	init := func() {
 		if x.Init != nil {
@@ -376,13 +409,37 @@ func (i *Interpreter) VisitForStmt(x *parse.ForStmt) {
 			i.evaluate(x.Post)
 		}
 	}
-	for init(); cond(); post() {
+	for init(); cond() && !i.shouldBreak(); post() {
 		i.execute(x.Body)
 	}
 }
 
-func (i *Interpreter) execute(x parse.Stmt) error {
-	parse.StmtAcceptFullVisitor(x, i)
+func (i *Interpreter) VisitReturnStmt(x *ast.ReturnStmt) {
+	v := newValue(nil)
+	if x.Result != nil {
+		v = i.evaluate(x.Result)
+	}
+	i.ret = v
+}
+
+func (i *Interpreter) executeFunction(decl *ast.FunDecl, args []*Value, closure *env) *Value {
+	oldEnv := i.setEnv(newEnv(closure))
+	defer i.restoreEnv(oldEnv)
+
+	for idx, param := range decl.Params {
+		i.env.define(param.Val, args[idx])
+	}
+	i.execute(decl.Body)
+	if i.ret != nil {
+		r := i.ret
+		i.ret = nil
+		return r
+	}
+	return newValue(nil)
+}
+
+func (i *Interpreter) execute(x ast.Stmt) error {
+	ast.StmtAcceptFullVisitor(x, i)
 	return i.err()
 }
 
@@ -397,15 +454,15 @@ func (i *Interpreter) err() error {
 }
 
 func New() *Interpreter {
-	i := &Interpreter{env: globals()}
+	i := &Interpreter{env: globals}
 	return i
 }
 
-func InterpretExpr(e parse.Expr) (*Value, error) {
+func InterpretExpr(e ast.Expr) (*Value, error) {
 	r := New().evaluate(e)
 	return r, r.err()
 }
 
-func (i *Interpreter) Interpret(program []parse.Stmt) error {
+func (i *Interpreter) Interpret(program []ast.Stmt) error {
 	return i.executeBlock(program)
 }

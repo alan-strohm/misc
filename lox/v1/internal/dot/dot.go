@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alan-strohm/misc/lox/v1/internal/parse"
+	"github.com/alan-strohm/misc/lox/v1/internal/ast"
 )
 
 type printer struct {
@@ -26,134 +26,123 @@ func (p *printer) pushIdent() string {
 	return id
 }
 
-func (p *printer) VisitBinaryExpr(e *parse.BinaryExpr) {
-	this := p.pushIdent()
-	parse.ExprAcceptFullVisitor(e.X, p)
-	x := p.popIdent()
-	parse.ExprAcceptFullVisitor(e.Y, p)
-	y := p.popIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="%s"]`, this, e.Op.Val))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, y))
-}
-func (p *printer) VisitCallExpr(e *parse.CallExpr) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label=call]`, this))
-	parse.ExprAcceptFullVisitor(e.Fun, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	for _, arg := range e.Args {
-		parse.ExprAcceptFullVisitor(arg, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-}
-func (p *printer) VisitUnaryExpr(e *parse.UnaryExpr) {
-	this := p.pushIdent()
-	parse.ExprAcceptFullVisitor(e.X, p)
-	x := p.popIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="%s"]`, this, e.Op.Val))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
-}
-func (p *printer) VisitBasicLit(e *parse.BasicLit) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label=%s]`, this, strconv.Quote(e.Value.Val)))
-}
-func (p *printer) VisitIdent(e *parse.Ident) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label=%s]`, this, e.Tok.Val))
-}
-func (p *printer) VisitParenExpr(e *parse.ParenExpr) {
-	this := p.pushIdent()
-	parse.ExprAcceptFullVisitor(e.X, p)
-	x := p.popIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="()"]`, this))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
-}
-func (p *printer) VisitAssign(e *parse.Assign) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="%s"]`, this, e.Name.Val))
-	assign := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="="]`, assign))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	parse.ExprAcceptFullVisitor(e.Value, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", assign, p.popIdent()))
-}
-func (p *printer) VisitExprStmt(x *parse.ExprStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="Expr"]`, this))
-	parse.ExprAcceptFullVisitor(x.X, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-}
-func (p *printer) VisitPrintStmt(x *parse.PrintStmt) {
-	this := p.pushIdent()
-	parse.ExprAcceptFullVisitor(x.X, p)
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="print"]`, this))
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-}
-func (p *printer) VisitVarStmt(x *parse.VarStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="var %s"]`, this, x.Name.Val))
-	if x.Value != nil {
-		parse.ExprAcceptFullVisitor(x.Value, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-}
-func (p *printer) VisitBlockStmt(x *parse.BlockStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="{}"]`, this))
-	for _, s := range x.List {
-		parse.StmtAcceptFullVisitor(s, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-}
-func (p *printer) VisitIfStmt(x *parse.IfStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="if"]`, this))
-	parse.ExprAcceptFullVisitor(x.Cond, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	parse.StmtAcceptFullVisitor(x.Body, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	if x.Else != nil {
-		parse.StmtAcceptFullVisitor(x.Else, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-}
-func (p *printer) VisitWhileStmt(x *parse.WhileStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="while"]`, this))
-	parse.ExprAcceptFullVisitor(x.Cond, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	parse.StmtAcceptFullVisitor(x.Body, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-}
-func (p *printer) VisitForStmt(x *parse.ForStmt) {
-	this := p.pushIdent()
-	p.lines = append(p.lines, fmt.Sprintf(`%s [label="for"]`, this))
-	if x.Init != nil {
-		parse.StmtAcceptFullVisitor(x.Init, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-	if x.Cond != nil {
-		parse.ExprAcceptFullVisitor(x.Cond, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-	if x.Post != nil {
-		parse.ExprAcceptFullVisitor(x.Post, p)
-		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
-	}
-	parse.StmtAcceptFullVisitor(x.Body, p)
-	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
+func (p *printer) addNode(name string) string {
+	n := p.pushIdent()
+	p.lines = append(p.lines, fmt.Sprintf("%s [label=%s]", n, strconv.Quote(name)))
+	return n
 }
 
-func ExprToDot(e parse.Expr) string {
+func (p *printer) addEdge(from, to string) {
+	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", from, to))
+}
+func (p *printer) addEdgeToExpr(from string, x ast.Expr) {
+	ast.ExprAcceptFullVisitor(x, p)
+	p.addEdge(from, p.popIdent())
+}
+func (p *printer) addEdgeToStmt(from string, x ast.Stmt) {
+	ast.StmtAcceptFullVisitor(x, p)
+	p.addEdge(from, p.popIdent())
+}
+
+func (p *printer) VisitBinaryExpr(e *ast.BinaryExpr) {
+	this := p.addNode(e.Op.Val)
+	p.addEdgeToExpr(this, e.X)
+	p.addEdgeToExpr(this, e.Y)
+}
+func (p *printer) VisitCallExpr(e *ast.CallExpr) {
+	this := p.addNode("call")
+	p.addEdgeToExpr(this, e.Fun)
+	for _, arg := range e.Args {
+		p.addEdgeToExpr(this, arg)
+	}
+}
+func (p *printer) VisitUnaryExpr(e *ast.UnaryExpr) {
+	this := p.addNode(e.Op.Val)
+	p.addEdgeToExpr(this, e.X)
+}
+func (p *printer) VisitBasicLit(e *ast.BasicLit) {
+	p.addNode(e.Value.Val)
+}
+func (p *printer) VisitIdent(e *ast.Ident) {
+	p.addNode(e.Tok.Val)
+}
+func (p *printer) VisitParenExpr(e *ast.ParenExpr) {
+	this := p.addNode("()")
+	p.addEdgeToExpr(this, e.X)
+}
+func (p *printer) VisitAssign(e *ast.Assign) {
+	this := p.addNode(e.Name.Val)
+	assign := p.addNode("=")
+	p.addEdge(this, p.popIdent())
+	p.addEdgeToExpr(assign, e.Value)
+}
+func (p *printer) VisitExprStmt(x *ast.ExprStmt) {
+	this := p.addNode("Expr")
+	p.addEdgeToExpr(this, x.X)
+}
+func (p *printer) VisitPrintStmt(x *ast.PrintStmt) {
+	this := p.addNode("print")
+	p.addEdgeToExpr(this, x.X)
+}
+func (p *printer) VisitVarDecl(x *ast.VarDecl) {
+	this := p.addNode("var " + x.Name.Val)
+	if x.Value != nil {
+		p.addEdgeToExpr(this, x.Value)
+	}
+}
+func (p *printer) VisitFunDecl(x *ast.FunDecl) {
+	this := p.addNode("fun " + x.Name.Val)
+	p.addEdgeToStmt(this, x.Body)
+}
+func (p *printer) VisitBlockStmt(x *ast.BlockStmt) {
+	this := p.addNode("{}")
+	for _, s := range x.List {
+		p.addEdgeToStmt(this, s)
+	}
+}
+func (p *printer) VisitIfStmt(x *ast.IfStmt) {
+	this := p.addNode("if")
+	p.addEdgeToExpr(this, x.Cond)
+	p.addEdgeToStmt(this, x.Body)
+	if x.Else != nil {
+		p.addEdgeToStmt(this, x.Else)
+	}
+}
+func (p *printer) VisitWhileStmt(x *ast.WhileStmt) {
+	this := p.addNode("while")
+	p.addEdgeToExpr(this, x.Cond)
+	p.addEdgeToStmt(this, x.Body)
+}
+func (p *printer) VisitForStmt(x *ast.ForStmt) {
+	this := p.addNode("for")
+	if x.Init != nil {
+		p.addEdgeToStmt(this, x.Init)
+	}
+	if x.Cond != nil {
+		p.addEdgeToExpr(this, x.Cond)
+	}
+	if x.Post != nil {
+		p.addEdgeToExpr(this, x.Post)
+	}
+	p.addEdgeToStmt(this, x.Body)
+}
+
+func (p *printer) VisitReturnStmt(x *ast.ReturnStmt) {
+	this := p.addNode("return")
+	p.addEdgeToExpr(this, x.Result)
+}
+
+func ExprToDot(e ast.Expr) string {
 	p := &printer{}
-	parse.ExprAcceptFullVisitor(e, p)
+	ast.ExprAcceptFullVisitor(e, p)
 	return fmt.Sprintf("digraph G {\n  %s\n}", strings.Join(p.lines, "\n  "))
 }
 
-func ProgToDot(prog []parse.Stmt) string {
+func ProgToDot(prog []ast.Stmt) string {
 	p := &printer{}
+	root := p.addNode("root")
 	for _, s := range prog {
-		parse.StmtAcceptFullVisitor(s, p)
+		p.addEdgeToStmt(root, s)
 	}
 	return fmt.Sprintf("digraph G {\n  %s\n}", strings.Join(p.lines, "\n  "))
 }
