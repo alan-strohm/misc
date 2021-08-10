@@ -43,6 +43,14 @@ type (
 		X  Expr        // operand
 	}
 
+	// A CallExpr node represents an expression followed by an argument list.
+	CallExpr struct {
+		Fun    Expr      // function expression
+		Lparen token.Pos // position of "("
+		Args   []Expr    // function arguments; or nil
+		Rparen token.Pos // position of ")"
+	}
+
 	// A BasicLit node represents a literal of basic type.
 	//
 	// Note that for token.STRING tokens, the literal is stored with its quotes.
@@ -76,6 +84,9 @@ type (
 	UnaryExprVisitor interface {
 		VisitUnaryExpr(x *UnaryExpr)
 	}
+	CallExprVisitor interface {
+		VisitCallExpr(x *CallExpr)
+	}
 	BasicLitVisitor interface {
 		VisitBasicLit(x *BasicLit)
 	}
@@ -89,6 +100,7 @@ type (
 		IdentVisitor
 		BinaryExprVisitor
 		UnaryExprVisitor
+		CallExprVisitor
 		BasicLitVisitor
 		ParenExprVisitor
 		AssignVisitor
@@ -130,6 +142,12 @@ func exprAcceptVisitor(e Expr, v interface{}) {
 			n.VisitUnaryExpr(t)
 			return
 		}
+	case *CallExpr:
+		n, ok := v.(CallExprVisitor)
+		if ok {
+			n.VisitCallExpr(t)
+			return
+		}
 	case *BasicLit:
 		n, ok := v.(BasicLitVisitor)
 		if ok {
@@ -158,6 +176,7 @@ func (x *BasicLit) Pos() token.Pos   { return x.Value.Pos }
 func (x *BinaryExpr) Pos() token.Pos { return x.X.Pos() }
 func (x *ParenExpr) Pos() token.Pos  { return x.Lparen }
 func (x *UnaryExpr) Pos() token.Pos  { return x.Op.Pos }
+func (x *CallExpr) Pos() token.Pos   { return x.Fun.Pos() }
 func (x *Assign) Pos() token.Pos     { return x.Name.Pos }
 
 func (x *BadExpr) End() token.Pos    { return x.To }
@@ -166,6 +185,7 @@ func (x *BasicLit) End() token.Pos   { return x.Value.Pos + token.Pos(len(x.Valu
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
 func (x *ParenExpr) End() token.Pos  { return x.Rparen }
 func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
+func (x *CallExpr) End() token.Pos   { return x.Rparen + 1 }
 func (x *Assign) End() token.Pos     { return x.Value.End() }
 
 // exprNode() ensures that only expression/type nodes can be
@@ -176,6 +196,7 @@ func (*Ident) exprNode()      {}
 func (*BasicLit) exprNode()   {}
 func (*ParenExpr) exprNode()  {}
 func (*UnaryExpr) exprNode()  {}
+func (*CallExpr) exprNode()   {}
 func (*BinaryExpr) exprNode() {}
 func (*Assign) exprNode()     {}
 
@@ -493,11 +514,24 @@ func (p *parser) parseOperand() Expr {
 	return &BadExpr{From: pos, To: p.cur().Pos}
 }
 
+func (p *parser) parseCall(x Expr) Expr {
+	return nil
+}
+
 func (p *parser) parsePrimaryExpr() Expr {
 	if p.trace {
 		defer un(trace(p, "PrimaryExpr"))
 	}
 	x := p.parseOperand()
+L:
+	for {
+		switch p.cur().Type {
+		case token.LPAREN:
+			x = p.parseCall(x)
+		default:
+			break L
+		}
+	}
 	return x
 }
 
