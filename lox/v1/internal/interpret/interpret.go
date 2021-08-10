@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alan-strohm/misc/lox/v1/internal/parse"
 	"github.com/alan-strohm/misc/lox/v1/internal/token"
@@ -17,6 +18,7 @@ const (
 	NUMBER
 	BOOL
 	NIL
+	CALLABLE
 )
 
 type Value struct {
@@ -33,12 +35,20 @@ func (v *Value) String() string {
 	}
 }
 
-func newError(op token.Token, format string, args ...interface{}) *Value {
+func newError(pos token.Pos, format string, args ...interface{}) *Value {
 	return &Value{t: ERROR,
-		v: fmt.Errorf("pos %d: %s", op.Pos, fmt.Sprintf(format, args...))}
+		v: fmt.Errorf("pos %d: %s", pos, fmt.Sprintf(format, args...))}
+}
+
+type callable interface {
+	call(*Interpreter, []*Value) *Value
+	arity() int
 }
 
 func newValue(v interface{}) *Value {
+	if _, ok := v.(callable); ok {
+		return &Value{v: v, t: CALLABLE}
+	}
 	switch v.(type) {
 	case bool:
 		return &Value{v: v, t: BOOL}
@@ -104,7 +114,7 @@ func (x *Value) unary(op token.Token) *Value {
 		if ok {
 			return newValue(-f)
 		}
-		return newError(op, "operand to %s must be a number", op.Type)
+		return newError(op.Pos, "operand to %s must be a number", op.Type)
 	}
 	panic(fmt.Sprintf("non binary operator: %s", op.Type))
 }
@@ -125,14 +135,14 @@ func (x *Value) binary(op token.Token, y *Value) *Value {
 			return numberOp(op, fx, fy)
 		}
 		if op.Type != token.ADD {
-			return newError(op, "operands to %s must be numbers", op.Type)
+			return newError(op.Pos, "operands to %s must be numbers", op.Type)
 		}
 		sx, xok := x.v.(string)
 		sy, yok := y.v.(string)
 		if xok && yok {
 			return newValue(sx + sy)
 		}
-		return newError(op, "operands to %s must be numbers or strings", op.Type)
+		return newError(op.Pos, "operands to %s must be numbers or strings", op.Type)
 	case token.EQL:
 		return newValue(isEqual(x, y))
 	case token.NEQ:
@@ -170,6 +180,19 @@ func (e *env) lookup(id string) *Value {
 		}
 	}
 	return nil
+}
+
+type clock struct{}
+
+func (c clock) call(_ *Interpreter, _ []*Value) *Value {
+	return newValue(float64(time.Now().UnixNano()) / 1e9)
+}
+func (c clock) arity() int { return 0 }
+
+func globals() (r env) {
+	r.push()
+	r.peek()["clock"] = newValue(&clock{})
+	return
 }
 
 type Interpreter struct {
@@ -224,6 +247,26 @@ func (i *Interpreter) VisitUnaryExpr(e *parse.UnaryExpr) {
 	i.push(v.unary(e.Op))
 }
 
+func (i *Interpreter) VisitCallExpr(e *parse.CallExpr) {
+	fun, ok := i.evaluate(e.Fun).v.(callable)
+	if !ok {
+		i.push(newError(e.Lparen, "Can only call functions and classes."))
+		return
+	}
+	if fun.arity() != len(e.Args) {
+		i.push(newError(e.Rparen, fmt.Sprintf("expected %d args to function call, got %d", fun.arity(), len(e.Args))))
+		return
+	}
+	args := make([]*Value, len(e.Args))
+	for ix, arg := range e.Args {
+		args[ix] = i.evaluate(arg)
+		if args[ix].err() != nil {
+			return
+		}
+	}
+	i.push(fun.call(i, args))
+}
+
 func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 	switch e.Value.Type {
 	case token.STRING:
@@ -233,7 +276,7 @@ func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 		if err == nil {
 			i.push(newValue(f))
 		} else {
-			i.push(newError(e.Value, "invalid number: %s", err))
+			i.push(newError(e.Value.Pos, "invalid number: %s", err))
 		}
 	case token.FALSE:
 		i.push(newValue(false))
@@ -247,7 +290,7 @@ func (i *Interpreter) VisitBasicLit(e *parse.BasicLit) {
 func (i *Interpreter) VisitIdent(x *parse.Ident) {
 	v := i.env.lookup(x.Tok.Val)
 	if v == nil {
-		i.push(newError(x.Tok, "reference to undefined identifier '%s'", x.Tok.Val))
+		i.push(newError(x.Tok.Pos, "reference to undefined identifier '%s'", x.Tok.Val))
 		return
 	}
 	i.push(v)
@@ -256,7 +299,7 @@ func (i *Interpreter) VisitIdent(x *parse.Ident) {
 func (i *Interpreter) VisitAssign(x *parse.Assign) {
 	lhs := i.env.lookup(x.Name.Val)
 	if lhs == nil {
-		i.push(newError(x.Name, "assignment to undefined identifier '%s'", x.Name.Val))
+		i.push(newError(x.Name.Pos, "assignment to undefined identifier '%s'", x.Name.Val))
 		return
 	}
 	rhs := i.evaluate(x.Value)
@@ -354,8 +397,7 @@ func (i *Interpreter) err() error {
 }
 
 func New() *Interpreter {
-	i := &Interpreter{}
-	i.env.push()
+	i := &Interpreter{env: globals()}
 	return i
 }
 

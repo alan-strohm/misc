@@ -514,8 +514,26 @@ func (p *parser) parseOperand() Expr {
 	return &BadExpr{From: pos, To: p.cur().Pos}
 }
 
-func (p *parser) parseCall(x Expr) Expr {
-	return nil
+func (p *parser) parseCall(fun Expr) Expr {
+	if p.trace {
+		defer un(trace(p, "Call"))
+	}
+	lparen := p.expect(token.LPAREN)
+	p.exprLev++
+	var list []Expr
+	for p.cur().Type != token.RPAREN && p.cur().Type != token.EOF {
+		if len(list) >= 255 {
+			p.error(p.cur().Pos, "more than 255 arguments")
+		}
+		list = append(list, p.parseExpr())
+		if p.cur().Type != token.COMMA {
+			break
+		}
+		p.next()
+	}
+	p.exprLev--
+	rparen := p.expect(token.RPAREN)
+	return &CallExpr{Fun: fun, Lparen: lparen, Args: list, Rparen: rparen}
 }
 
 func (p *parser) parsePrimaryExpr() Expr {

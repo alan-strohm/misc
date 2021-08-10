@@ -36,6 +36,16 @@ func (p *printer) VisitBinaryExpr(e *parse.BinaryExpr) {
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, x))
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, y))
 }
+func (p *printer) VisitCallExpr(e *parse.CallExpr) {
+	this := p.pushIdent()
+	p.lines = append(p.lines, fmt.Sprintf(`%s [label=call]`, this))
+	parse.ExprAcceptFullVisitor(e.Fun, p)
+	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
+	for _, arg := range e.Args {
+		parse.ExprAcceptFullVisitor(arg, p)
+		p.lines = append(p.lines, fmt.Sprintf("%s -> %s", this, p.popIdent()))
+	}
+}
 func (p *printer) VisitUnaryExpr(e *parse.UnaryExpr) {
 	this := p.pushIdent()
 	parse.ExprAcceptFullVisitor(e.X, p)
