@@ -225,7 +225,7 @@ func (i *Interpreter) pop() *Value {
 }
 
 func (i *Interpreter) evaluate(e ast.Expr) *Value {
-	ast.ExprAcceptFullVisitor(e, i)
+	ast.ExprAcceptVisitor(e, i)
 	r := i.pop()
 	if r.err() != nil {
 		i.errors = append(i.errors, r.err())
@@ -234,7 +234,7 @@ func (i *Interpreter) evaluate(e ast.Expr) *Value {
 }
 
 func (i *Interpreter) VisitParenExpr(e *ast.ParenExpr) {
-	ast.ExprAcceptFullVisitor(e.X, i)
+	ast.ExprAcceptVisitor(e.X, i)
 }
 
 func (i *Interpreter) VisitBinaryExpr(e *ast.BinaryExpr) {
@@ -439,7 +439,7 @@ func (i *Interpreter) executeFunction(decl *ast.FunDecl, args []*Value, closure 
 }
 
 func (i *Interpreter) execute(x ast.Stmt) error {
-	ast.StmtAcceptFullVisitor(x, i)
+	ast.StmtAcceptVisitor(x, i)
 	return i.err()
 }
 

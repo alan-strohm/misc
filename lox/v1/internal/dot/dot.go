@@ -36,11 +36,11 @@ func (p *printer) addEdge(from, to string) {
 	p.lines = append(p.lines, fmt.Sprintf("%s -> %s", from, to))
 }
 func (p *printer) addEdgeToExpr(from string, x ast.Expr) {
-	ast.ExprAcceptFullVisitor(x, p)
+	ast.ExprAcceptVisitor(x, p)
 	p.addEdge(from, p.popIdent())
 }
 func (p *printer) addEdgeToStmt(from string, x ast.Stmt) {
-	ast.StmtAcceptFullVisitor(x, p)
+	ast.StmtAcceptVisitor(x, p)
 	p.addEdge(from, p.popIdent())
 }
 
@@ -134,7 +134,7 @@ func (p *printer) VisitReturnStmt(x *ast.ReturnStmt) {
 
 func ExprToDot(e ast.Expr) string {
 	p := &printer{}
-	ast.ExprAcceptFullVisitor(e, p)
+	ast.ExprAcceptVisitor(e, p)
 	return fmt.Sprintf("digraph G {\n  %s\n}", strings.Join(p.lines, "\n  "))
 }
 

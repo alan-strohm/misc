@@ -68,102 +68,85 @@ type (
 		Value Expr
 	}
 
-	PartialExprVisitor interface {
-		VisitExpr(x Expr)
-	}
-	IdentVisitor interface {
+	// A FullExprVisitor implements visit methods for each concrete type of expression.
+	FullExprVisitor interface {
 		VisitIdent(x *Ident)
-	}
-	BinaryExprVisitor interface {
 		VisitBinaryExpr(x *BinaryExpr)
-	}
-	UnaryExprVisitor interface {
 		VisitUnaryExpr(x *UnaryExpr)
-	}
-	CallExprVisitor interface {
 		VisitCallExpr(x *CallExpr)
-	}
-	BasicLitVisitor interface {
 		VisitBasicLit(x *BasicLit)
-	}
-	ParenExprVisitor interface {
 		VisitParenExpr(x *ParenExpr)
-	}
-	AssignVisitor interface {
 		VisitAssign(x *Assign)
 	}
-	FullExprVisitor interface {
-		IdentVisitor
-		BinaryExprVisitor
-		UnaryExprVisitor
-		CallExprVisitor
-		BasicLitVisitor
-		ParenExprVisitor
-		AssignVisitor
+
+	// A DefaultExprVisitor implements FullExprVisitor, by calling a generic default function.
+	// Clients can embed this struct if they don't want to implement each method
+	// of FullExprVisitor.
+	DefaultExprVisitor struct {
+		def func(e Expr)
+	}
+
+	// An ExprWalker implements FullExprVisitor by walking the expression tree.
+	// Clients can embed this struct and then provide their own implementation of
+	// whichever visits they wish.
+	ExprWalker struct {
+		parent FullExprVisitor
 	}
 )
 
+// Create an expression visitor which will call def for every type of
+// expression.
+func NewDefaultExpr(def func(e Expr)) *DefaultExprVisitor {
+	return &DefaultExprVisitor{def: def}
+}
+
+// Create an expression walker which will walk an expression tree, calling
+// parent on each sub-expression.
+func NewExprWalker(parent FullExprVisitor) *ExprWalker {
+	return &ExprWalker{parent: parent}
+}
+
+func (d *DefaultExprVisitor) VisitIdent(x *Ident)           { d.def(x) }
+func (w *ExprWalker) VisitIdent(x *Ident)                   {}
+func (d *DefaultExprVisitor) VisitBinaryExpr(x *BinaryExpr) { d.def(x) }
+func (w *ExprWalker) VisitBinaryExpr(x *BinaryExpr) {
+	ExprAcceptVisitor(x.X, w.parent)
+	ExprAcceptVisitor(x.Y, w.parent)
+}
+func (d *DefaultExprVisitor) VisitUnaryExpr(x *UnaryExpr) { d.def(x) }
+func (w *ExprWalker) VisitUnaryExpr(x *UnaryExpr)         { ExprAcceptVisitor(x.X, w.parent) }
+func (d *DefaultExprVisitor) VisitCallExpr(x *CallExpr)   { d.def(x) }
+func (w *ExprWalker) VisitCallExpr(x *CallExpr) {
+	ExprAcceptVisitor(x.Fun, w.parent)
+	for _, arg := range x.Args {
+		ExprAcceptVisitor(arg, w.parent)
+	}
+}
+func (d *DefaultExprVisitor) VisitBasicLit(x *BasicLit)   { d.def(x) }
+func (w *ExprWalker) VisitBasicLit(x *BasicLit)           {}
+func (d *DefaultExprVisitor) VisitParenExpr(x *ParenExpr) { d.def(x) }
+func (w *ExprWalker) VisitParenExpr(x *ParenExpr)         { ExprAcceptVisitor(x.X, w.parent) }
+func (d *DefaultExprVisitor) VisitAssign(x *Assign)       { d.def(x) }
+func (w *ExprWalker) VisitAssign(x *Assign)               { ExprAcceptVisitor(x.Value, w.parent) }
+
 // Call the appropriate visitor method on v.
-//
-// When we add new types of expression, existing uses of ExprAcceptFullVisitor
-// will no longer compile until their visitors are updated.  If, instead, you
-// want a default visit function to be called, use ExprAcceptPartialVisitor.
-func ExprAcceptFullVisitor(e Expr, v FullExprVisitor) {
-	exprAcceptVisitor(e, v)
-}
-
-// If v implements a visitor for e's type (e.g. BinaryExprVisitor), call the
-// appropriate visitor method (e.g. VisitBinaryExpr).  Otherwise, call VisitExpr.
-func ExprAcceptPartialVisitor(e Expr, v PartialExprVisitor) {
-	exprAcceptVisitor(e, v)
-}
-
-func exprAcceptVisitor(e Expr, v interface{}) {
+func ExprAcceptVisitor(e Expr, v FullExprVisitor) {
 	switch t := e.(type) {
 	case *Ident:
-		n, ok := v.(IdentVisitor)
-		if ok {
-			n.VisitIdent(t)
-			return
-		}
+		v.VisitIdent(t)
 	case *BinaryExpr:
-		n, ok := v.(BinaryExprVisitor)
-		if ok {
-			n.VisitBinaryExpr(t)
-			return
-		}
+		v.VisitBinaryExpr(t)
 	case *UnaryExpr:
-		n, ok := v.(UnaryExprVisitor)
-		if ok {
-			n.VisitUnaryExpr(t)
-			return
-		}
+		v.VisitUnaryExpr(t)
 	case *CallExpr:
-		n, ok := v.(CallExprVisitor)
-		if ok {
-			n.VisitCallExpr(t)
-			return
-		}
+		v.VisitCallExpr(t)
 	case *BasicLit:
-		n, ok := v.(BasicLitVisitor)
-		if ok {
-			n.VisitBasicLit(t)
-			return
-		}
+		v.VisitBasicLit(t)
 	case *ParenExpr:
-		n, ok := v.(ParenExprVisitor)
-		if ok {
-			n.VisitParenExpr(t)
-			return
-		}
+		v.VisitParenExpr(t)
 	case *Assign:
-		n, ok := v.(AssignVisitor)
-		if ok {
-			n.VisitAssign(t)
-			return
-		}
+		v.VisitAssign(t)
 	}
-	v.(PartialExprVisitor).VisitExpr(e)
 }
 
 func (x *BadExpr) Pos() token.Pos    { return x.From }
@@ -281,48 +264,93 @@ type (
 		Result Expr      // result expressions; or nil
 	}
 
-	PartialStmtVisitor interface {
-		VisitStmt(x Stmt)
-	}
-	ExprStmtVisitor interface {
+	FullStmtVisitor interface {
 		VisitExprStmt(x *ExprStmt)
-	}
-	PrintStmtVisitor interface {
 		VisitPrintStmt(x *PrintStmt)
-	}
-	VarDeclVisitor interface {
 		VisitVarDecl(x *VarDecl)
-	}
-	FunDeclVisitor interface {
 		VisitFunDecl(x *FunDecl)
-	}
-	BlockStmtVisitor interface {
 		VisitBlockStmt(x *BlockStmt)
-	}
-	IfStmtVisitor interface {
 		VisitIfStmt(x *IfStmt)
-	}
-	WhileStmtVisitor interface {
 		VisitWhileStmt(x *WhileStmt)
-	}
-	ForStmtVisitor interface {
 		VisitForStmt(x *ForStmt)
-	}
-	ReturnStmtVisitor interface {
 		VisitReturnStmt(x *ReturnStmt)
 	}
-	FullStmtVisitor interface {
-		ExprStmtVisitor
-		PrintStmtVisitor
-		VarDeclVisitor
-		FunDeclVisitor
-		BlockStmtVisitor
-		IfStmtVisitor
-		WhileStmtVisitor
-		ForStmtVisitor
-		ReturnStmtVisitor
+
+	// A DefaultStmtVisitor implements FullStmtVisitor, by calling a generic default function.
+	// Clients can embed this struct if they don't want to implement each method
+	// of FullStmtVisitor.
+	DefaultStmtVisitor struct {
+		def func(e Stmt)
+	}
+
+	// A FullVisitor can visit any node in the AST.
+	FullVisitor interface {
+		FullExprVisitor
+		FullStmtVisitor
+	}
+
+	// A Walker implements FullAstWalker by walking the syntax tree.
+	// Clients can embed this struct and then provide their own implementation of
+	// whichever visits they wish.
+	Walker struct {
+		*ExprWalker
+		parent FullVisitor
 	}
 )
+
+// Create a statement visitor which will call def for every type of statement.
+func NewDefaultStmt(def func(e Stmt)) *DefaultStmtVisitor {
+	return &DefaultStmtVisitor{def: def}
+}
+
+// Create an expression walker which will walk an expression tree, calling
+// parent on each sub-expression.
+func NewWalker(parent FullVisitor) *Walker {
+	return &Walker{parent: parent, ExprWalker: NewExprWalker(parent)}
+}
+
+func (d *DefaultStmtVisitor) VisitExprStmt(s *ExprStmt)   { d.def(s) }
+func (w *Walker) VisitExprStmt(s *ExprStmt)               { ExprAcceptVisitor(s.X, w.parent) }
+func (d *DefaultStmtVisitor) VisitPrintStmt(s *PrintStmt) { d.def(s) }
+func (w *Walker) VisitPrintStmt(s *PrintStmt)             { ExprAcceptVisitor(s.X, w.parent) }
+func (d *DefaultStmtVisitor) VisitVarDecl(s *VarDecl)     { d.def(s) }
+func (w *Walker) VisitVarDecl(s *VarDecl)                 { ExprAcceptVisitor(s.Value, w.parent) }
+func (d *DefaultStmtVisitor) VisitFunDecl(s *FunDecl)     { d.def(s) }
+func (w *Walker) VisitFunDecl(s *FunDecl)                 { StmtAcceptVisitor(s.Body, w.parent) }
+func (d *DefaultStmtVisitor) VisitBlockStmt(s *BlockStmt) { d.def(s) }
+func (w *Walker) VisitBlockStmt(s *BlockStmt) {
+	for _, s := range s.List {
+		StmtAcceptVisitor(s, w.parent)
+	}
+}
+func (d *DefaultStmtVisitor) VisitIfStmt(s *IfStmt) { d.def(s) }
+func (w *Walker) VisitIfStmt(s *IfStmt) {
+	ExprAcceptVisitor(s.Cond, w.parent)
+	StmtAcceptVisitor(s.Body, w.parent)
+	if s.Else != nil {
+		StmtAcceptVisitor(s.Else, w.parent)
+	}
+}
+func (d *DefaultStmtVisitor) VisitWhileStmt(s *WhileStmt) { d.def(s) }
+func (w *Walker) VisitWhileStmt(s *WhileStmt) {
+	ExprAcceptVisitor(s.Cond, w.parent)
+	StmtAcceptVisitor(s.Body, w.parent)
+}
+func (d *DefaultStmtVisitor) VisitForStmt(s *ForStmt) { d.def(s) }
+func (w *Walker) VisitForStmt(s *ForStmt) {
+	if s.Init != nil {
+		StmtAcceptVisitor(s.Init, w.parent)
+	}
+	if s.Cond != nil {
+		ExprAcceptVisitor(s.Cond, w.parent)
+	}
+	if s.Post != nil {
+		ExprAcceptVisitor(s.Post, w.parent)
+	}
+	StmtAcceptVisitor(s.Body, w.parent)
+}
+func (d *DefaultStmtVisitor) VisitReturnStmt(s *ReturnStmt) { d.def(s) }
+func (w *Walker) VisitReturnStmt(s *ReturnStmt)             { ExprAcceptVisitor(s.Result, w.parent) }
 
 // Pos and End implementations for statement nodes.
 
@@ -376,76 +404,25 @@ func (*ForStmt) stmtNode()    {}
 func (*ReturnStmt) stmtNode() {}
 
 // Call the appropriate visitor method on v.
-//
-// When we add new types of statement, existing uses of StmtAcceptFullVisitor
-// will no longer compile until their visitors are updated.  If, instead, you
-// want a default visit function to be called, use StmtAcceptPartialVisitor.
-func StmtAcceptFullVisitor(e Stmt, v FullStmtVisitor) {
-	stmtAcceptVisitor(e, v)
-}
-
-// If v implements a visitor for e's type (e.g. PrintStmtVisitor), call the
-// appropriate visitor method (e.g. VisitPrintStmt).  Otherwise, call VisitStmt.
-func StmtAcceptPartialVisitor(e Stmt, v PartialStmtVisitor) {
-	stmtAcceptVisitor(e, v)
-}
-
-func stmtAcceptVisitor(e Stmt, v interface{}) {
+func StmtAcceptVisitor(e Stmt, v FullStmtVisitor) {
 	switch t := e.(type) {
 	case *ExprStmt:
-		n, ok := v.(ExprStmtVisitor)
-		if ok {
-			n.VisitExprStmt(t)
-			return
-		}
+		v.VisitExprStmt(t)
 	case *PrintStmt:
-		n, ok := v.(PrintStmtVisitor)
-		if ok {
-			n.VisitPrintStmt(t)
-			return
-		}
+		v.VisitPrintStmt(t)
 	case *VarDecl:
-		n, ok := v.(VarDeclVisitor)
-		if ok {
-			n.VisitVarDecl(t)
-			return
-		}
+		v.VisitVarDecl(t)
 	case *FunDecl:
-		n, ok := v.(FunDeclVisitor)
-		if ok {
-			n.VisitFunDecl(t)
-			return
-		}
+		v.VisitFunDecl(t)
 	case *BlockStmt:
-		n, ok := v.(BlockStmtVisitor)
-		if ok {
-			n.VisitBlockStmt(t)
-			return
-		}
+		v.VisitBlockStmt(t)
 	case *IfStmt:
-		n, ok := v.(IfStmtVisitor)
-		if ok {
-			n.VisitIfStmt(t)
-			return
-		}
+		v.VisitIfStmt(t)
 	case *WhileStmt:
-		n, ok := v.(WhileStmtVisitor)
-		if ok {
-			n.VisitWhileStmt(t)
-			return
-		}
+		v.VisitWhileStmt(t)
 	case *ForStmt:
-		n, ok := v.(ForStmtVisitor)
-		if ok {
-			n.VisitForStmt(t)
-			return
-		}
+		v.VisitForStmt(t)
 	case *ReturnStmt:
-		n, ok := v.(ReturnStmtVisitor)
-		if ok {
-			n.VisitReturnStmt(t)
-			return
-		}
+		v.VisitReturnStmt(t)
 	}
-	v.(PartialStmtVisitor).VisitStmt(e)
 }
