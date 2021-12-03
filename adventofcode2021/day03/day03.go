@@ -48,30 +48,16 @@ func (t *trie) find(choose func(child [2]*trie) *trie) uint {
 }
 
 func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
-	var sum []int
 	var all *trie
 	for scanner.Scan() {
-		runes := []rune(scanner.Text())
-		if sum == nil {
-			sum = make([]int, len(runes))
-		}
 		if all == nil {
-			all = newTrie(len(runes))
+			all = newTrie(len(scanner.Text()))
 		}
 		val, err := strconv.ParseInt(scanner.Text(), 2, 32)
 		if err != nil {
 			return 0, err
 		}
-
 		all.insert(uint(val))
-
-		for i, r := range runes {
-			if r == '1' {
-				sum[i]++
-			} else {
-				sum[i]--
-			}
-		}
 	}
 	if p1 {
 		return part1(all)
