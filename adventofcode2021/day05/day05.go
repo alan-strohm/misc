@@ -7,27 +7,23 @@ import (
 )
 
 type point struct {
-	x, y int
-}
-type vec struct {
 	x, y float64
 }
 
-func (p *point) String() string   { return fmt.Sprintf("%d,%d", p.x, p.y) }
-func (p *point) eq(o *point) bool { return p.x == o.x && p.y == o.y }
-func (p *point) toVec() *vec      { return &vec{x: float64(p.x), y: float64(p.y)} }
+func (p *point) String() string      { return fmt.Sprintf("%f,%f", p.x, p.y) }
+func (p *point) round() *point       { return &point{math.RoundToEven(p.x), math.RoundToEven(p.y)} }
+func (p *point) add(o *point) *point { return &point{p.x + o.x, p.y + o.y} }
 
-func fromVec(v *vec) *point {
-	return &point{x: int(math.RoundToEven(v.x)), y: int(math.RoundToEven(v.y))}
+func (p *point) eq(o *point) bool {
+	pr, or := p.round(), o.round()
+	return pr.x == or.x && pr.y == or.y
 }
 
 // Return a unit vector pointing from p to o.
-func (p *point) vecTo(o *point) *vec {
-	d := math.Sqrt(float64((o.x-p.x)*(o.x-p.x) + (o.y-p.y)*(o.y-p.y)))
-	return &vec{x: float64(o.x-p.x) / d, y: float64(o.y-p.y) / d}
+func (p *point) vecTo(o *point) *point {
+	d := math.Sqrt((o.x-p.x)*(o.x-p.x) + (o.y-p.y)*(o.y-p.y))
+	return &point{(o.x - p.x) / d, (o.y - p.y) / d}
 }
-
-func (v *vec) add(o *vec) *vec { return &vec{x: v.x + o.x, y: v.y + o.y} }
 
 type line struct {
 	start, end point
@@ -38,20 +34,19 @@ func (l *line) diag() bool { return l.start.x != l.end.x && l.start.y != l.end.y
 func (l *line) points() []point {
 	v := l.start.vecTo(&l.end)
 	r := make([]point, 0, 2)
-	for i := l.start.toVec(); ; {
-		p := fromVec(i)
-		r = append(r, *p)
-		if p.eq(&l.end) {
+	for i := &l.start; ; i = i.add(v) {
+		i = i.round()
+		r = append(r, *i)
+		if l.end.eq(i) {
 			break
 		}
-		i = p.toVec().add(v)
 	}
 	return r
 }
 
 func parseLine(s string) (*line, error) {
 	r := &line{}
-	if _, err := fmt.Sscanf(s, "%d,%d -> %d,%d\n", &r.start.x, &r.start.y, &r.end.x, &r.end.y); err != nil {
+	if _, err := fmt.Sscanf(s, "%f,%f -> %f,%f\n", &r.start.x, &r.start.y, &r.end.x, &r.end.y); err != nil {
 		return nil, err
 	}
 	return r, nil
