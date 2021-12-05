@@ -10,7 +10,11 @@ func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 	scanner.Scan()
 	seed := strings.Split(scanner.Text(), ",")
 	total := len(seed)
-	births := [80]int{}
+	time := 256
+	if p1 {
+		time = 80
+	}
+	births := make([]int, time)
 	for _, f := range seed {
 		n, err := strconv.Atoi(f)
 		if err != nil {
