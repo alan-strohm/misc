@@ -21,7 +21,8 @@ func (p *point) eq(o *point) bool {
 
 // Return a unit vector pointing from p to o.
 func (p *point) vecTo(o *point) *point {
-	d := math.Sqrt((o.x-p.x)*(o.x-p.x) + (o.y-p.y)*(o.y-p.y))
+	dx, dy := o.x-p.x, o.y-p.y
+	d := math.Sqrt(dx*dx + dy*dy)
 	return &point{(o.x - p.x) / d, (o.y - p.y) / d}
 }
 
@@ -34,14 +35,10 @@ func (l *line) diag() bool { return l.start.x != l.end.x && l.start.y != l.end.y
 func (l *line) points() []point {
 	v := l.start.vecTo(&l.end)
 	r := make([]point, 0, 2)
-	for i := &l.start; ; i = i.add(v) {
-		i = i.round()
+	for i := &l.start; !l.end.eq(i); i = i.add(v).round() {
 		r = append(r, *i)
-		if l.end.eq(i) {
-			break
-		}
 	}
-	return r
+	return append(r, l.end)
 }
 
 func parseLine(s string) (*line, error) {
