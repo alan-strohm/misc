@@ -38,12 +38,13 @@ func (l *line) diag() bool { return l.start.x != l.end.x && l.start.y != l.end.y
 func (l *line) points() []point {
 	v := l.start.vecTo(&l.end)
 	r := make([]point, 0, 2)
-	for i := l.start.toVec(); ; i = i.add(v) {
+	for i := l.start.toVec(); ; {
 		p := fromVec(i)
 		r = append(r, *p)
 		if p.eq(&l.end) {
 			break
 		}
+		i = p.toVec().add(v)
 	}
 	return r
 }
@@ -64,7 +65,7 @@ func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if l.diag() {
+		if l.diag() && p1 {
 			continue
 		}
 		for _, p := range l.points() {
