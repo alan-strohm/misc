@@ -23,7 +23,7 @@ func (p *point) eq(o *point) bool {
 func (p *point) vecTo(o *point) *point {
 	dx, dy := o.x-p.x, o.y-p.y
 	d := math.Sqrt(dx*dx + dy*dy)
-	return &point{(o.x - p.x) / d, (o.y - p.y) / d}
+	return &point{dx / d, dy / d}
 }
 
 type line struct {
