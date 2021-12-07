@@ -25,20 +25,6 @@ func p2sum(in []float64, x float64) float64 {
 	return r
 }
 
-func solve(in []float64) float64 {
-	i := len(in) / 2
-	best := p2sum(in, in[i])
-	for _, inc := range []float64{1, -1} {
-		j := in[i] + inc
-		for next := p2sum(in, j); next < best; {
-			best = next
-			j += inc
-			next = p2sum(in, j)
-		}
-	}
-	return best
-}
-
 func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 	scanner.Scan()
 	in := strings.Split(scanner.Text(), ",")
@@ -54,5 +40,11 @@ func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 	if p1 {
 		return int(sum(pos, pos[len(pos)/2])), nil
 	}
-	return int(solve(pos)), nil
+	mean := sum(pos, 0) / float64(len(pos))
+	floor := int(p2sum(pos, math.Floor(mean)))
+	ceil := int(p2sum(pos, math.Ceil(mean)))
+	if floor < ceil {
+		return floor, nil
+	}
+	return ceil, nil
 }
