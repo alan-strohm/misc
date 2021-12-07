@@ -16,20 +16,6 @@ func sum(in []float64, x float64) float64 {
 	return r
 }
 
-func solve(in []float64) float64 {
-	i := len(in) / 2
-	best := sum(in, in[i])
-	for _, inc := range []int{1, -1} {
-		j := i + inc
-		for next := sum(in, in[j]); next < best; {
-			best = next
-			j += inc
-			next = sum(in, in[j])
-		}
-	}
-	return best
-}
-
 func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 	scanner.Scan()
 	in := strings.Split(scanner.Text(), ",")
@@ -42,5 +28,5 @@ func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
 		pos[i] = float64(n)
 	}
 	sort.Float64s(pos)
-	return int(solve(pos)), nil
+	return int(sum(pos, pos[len(pos)/2])), nil
 }
