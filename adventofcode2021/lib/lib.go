@@ -8,7 +8,27 @@ import (
 	"testing"
 )
 
-type Solution func(scanner *bufio.Scanner, Part1 bool) (int, error)
+type SolutionFn func(scanner *bufio.Scanner, Part1 bool) (int, error)
+
+type Solution interface {
+	Part1() float64
+	Part2() float64
+}
+
+type SolutionFactory func(scanner *bufio.Scanner) (Solution, error)
+
+func Convert(f SolutionFactory) SolutionFn {
+	return func(scanner *bufio.Scanner, Part1 bool) (int, error) {
+		s, err := f(scanner)
+		if err != nil {
+			return 0, err
+		}
+		if Part1 {
+			return int(s.Part1()), nil
+		}
+		return int(s.Part2()), nil
+	}
+}
 
 type TestCase struct {
 	FName string
@@ -17,7 +37,7 @@ type TestCase struct {
 	Dbg   bool
 }
 
-func Test(t *testing.T, tcs []*TestCase, s Solution) {
+func Test(t *testing.T, tcs []*TestCase, s SolutionFn) {
 	for _, tc := range tcs {
 		f, err := os.Open(tc.FName)
 		if err != nil {
@@ -43,7 +63,7 @@ func Dbg(format string, a ...interface{}) {
 
 var part1Flag = flag.Bool("part1", true, "Run part1 logic.")
 
-func Run(fname string, s Solution) {
+func Run(fname string, s SolutionFn) {
 	f, err := os.Open(fname)
 	if err != nil {
 		panic(err)
