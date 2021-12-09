@@ -195,8 +195,8 @@ func (o segOpts) lookup(seg byte) byte {
 	return o[seg].String()[0]
 }
 
-func (n *notes) Part1() float64 {
-	r := 0.0
+func (n *notes) Part1() int {
+	r := 0
 	for _, e := range n.es {
 		for _, o := range e {
 			if len(o) == 7 || len(byLen[len(o)]) < 7 {
@@ -207,7 +207,7 @@ func (n *notes) Part1() float64 {
 	return r
 }
 
-func (n *notes) Part2() float64 {
+func (n *notes) Part2() int {
 	r := 0.0
 	for _, e := range n.es {
 		n := 0.0
@@ -217,5 +217,5 @@ func (n *notes) Part2() float64 {
 		lib.Dbg("%s: %f\n", strings.Join(e[:], " "), n)
 		r += n
 	}
-	return r
+	return int(r)
 }

@@ -11,8 +11,8 @@ import (
 type SolutionFn func(scanner *bufio.Scanner, Part1 bool) (int, error)
 
 type Solution interface {
-	Part1() float64
-	Part2() float64
+	Part1() int
+	Part2() int
 }
 
 type SolutionFactory func(scanner *bufio.Scanner) (Solution, error)
@@ -24,9 +24,9 @@ func Convert(f SolutionFactory) SolutionFn {
 			return 0, err
 		}
 		if Part1 {
-			return int(s.Part1()), nil
+			return s.Part1(), nil
 		}
-		return int(s.Part2()), nil
+		return s.Part2(), nil
 	}
 }
 
