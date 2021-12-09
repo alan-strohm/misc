@@ -31,12 +31,12 @@ func (m *hmap) Part1() int {
 		for x, v := range row {
 			low := true
 			for _, n := range m.neighbors(x, y) {
-				if n < v {
+				if n <= v {
 					low = false
 				}
 			}
 			if low {
-				lib.Dbg("low point: %d, %d (neighbors: %v)\n", x, y, m.neighbors(x, y))
+				lib.Dbg("low point: %d, %d (v: %d, neighbors: %v)\n", x, y, v, m.neighbors(x, y))
 				risk += v + 1
 			}
 		}
