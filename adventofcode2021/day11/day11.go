@@ -8,11 +8,12 @@ import (
 	"github.com/alan-strohm/misc/adventofcode2021/lib"
 )
 
+type state struct{ lvl, inc int }
+
 type soln struct {
 	byLevel [10]map[point]*state
 	all     map[point]*state
 	steps   int
-	flashes int
 }
 
 const dim = 10
@@ -36,8 +37,6 @@ func (p point) neighbors() []point {
 	return r
 }
 
-type state struct{ lvl, inc int }
-
 func distModDim(x, y int) int {
 	x %= dim
 	y %= dim
@@ -47,8 +46,6 @@ func distModDim(x, y int) int {
 func (s *soln) zero() int          { return -s.steps%dim + dim }
 func (s *soln) fromAbs(in int) int { return (in + s.zero()) % dim }
 func (s *soln) toAbs(in int) int   { return distModDim(in, s.zero()) }
-
-// func (s *soln) norm(in int) int { return (dim + s.lvl - s.zero()) % dim }
 
 func (s *soln) String() string {
 	var b strings.Builder
@@ -62,10 +59,9 @@ func (s *soln) String() string {
 	return b.String()
 }
 
-func (s *soln) step() {
+func (s *soln) step() int {
 	flashPoint := s.fromAbs(dim - 1)
 	lib.Dbg("zero: %d, flashPoint: %d\n", s.zero(), flashPoint)
-	lib.Dbg("flashing: %v\n", s.byLevel[flashPoint])
 
 	flashed := []point{}
 	for len(s.byLevel[flashPoint]) > 0 {
@@ -78,6 +74,7 @@ func (s *soln) step() {
 			flashed = append(flashed, f)
 			delete(s.byLevel[flashPoint], f)
 		}
+
 		for _, c := range changed {
 			st := s.all[c]
 			if st.lvl == flashPoint {
@@ -100,17 +97,23 @@ func (s *soln) step() {
 		s.byLevel[flashPoint][f] = st
 	}
 	s.steps++
-	s.flashes += len(flashed)
 	lib.Dbg("%s\n", s)
+	return len(flashed)
 }
 
 func (s *soln) Part1() int {
+	flashes := 0
 	for i := 0; i < 100; i++ {
-		s.step()
+		flashes += s.step()
 	}
-	return s.flashes
+	return flashes
 }
-func (s *soln) Part2() int { return 0 }
+
+func (s *soln) Part2() int {
+	for flashed := s.step(); flashed != 100; flashed = s.step() {
+	}
+	return s.steps
+}
 
 func New(scanner *bufio.Scanner) (lib.Solution, error) {
 	r := &soln{all: make(map[point]*state)}

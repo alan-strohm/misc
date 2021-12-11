@@ -27,6 +27,8 @@ func TestPart1(t *testing.T) {
 	testCases := []*lib.TestCase{
 		{FName: "./sample.txt", Part1: true, Want: 1656},
 		{FName: "./input.txt", Part1: true, Want: 1681},
+		{FName: "./sample.txt", Part1: false, Want: 195},
+		{FName: "./input.txt", Part1: false, Want: 276},
 	}
 	lib.Test(t, testCases, lib.Convert(New))
 }
