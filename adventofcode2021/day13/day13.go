@@ -11,10 +11,27 @@ import (
 
 type point struct{ x, y int }
 
+func (a point) add(b point) point { return point{a.x + b.x, a.y + b.y} }
+func (a point) scale(s int) point { return point{s * a.x, s * a.y} }
+func (a point) dot(b point) int   { return a.x*b.x + a.y*b.y }
+func (a point) sub(b point) point { return a.add(b.scale(-1)) }
+func (a point) lt(b point) bool {
+	if a.y != b.y {
+		return a.y < b.y
+	}
+	return a.x < b.x
+}
+
+type line struct{ a, n point }
+
+func (l line) nearestTo(p point) point {
+	projDist := l.n.dot(p.sub(l.a))
+	return l.a.add(l.n.scale(projDist))
+}
+
 type manual struct {
 	points []point
-	xfolds []int
-	yfolds []int
+	folds  []line
 }
 
 func toString(in map[point]bool) string {
@@ -22,12 +39,7 @@ func toString(in map[point]bool) string {
 	for p, _ := range in {
 		all = append(all, p)
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if all[i].y != all[j].y {
-			return all[i].y < all[j].y
-		}
-		return all[i].x < all[j].x
-	})
+	sort.Slice(all, func(i, j int) bool { return all[i].lt(all[j]) })
 	lib.Dbg("%v\n", all)
 	i := point{0, 0}
 	var sb strings.Builder
@@ -44,19 +56,18 @@ func toString(in map[point]bool) string {
 	return sb.String()
 }
 
-func fold(in int, folds []int) int {
-	for _, f := range folds {
-		if in > f {
-			in = f - (in - f)
-		}
-	}
-	return in
-}
-
 func (m *manual) fold() int {
 	r := map[point]bool{}
 	for _, p := range m.points {
-		r[point{x: fold(p.x, m.xfolds), y: fold(p.y, m.yfolds)}] = true
+		mapped := p
+		for _, f := range m.folds {
+			nearest := f.nearestTo(mapped)
+			if mapped.lt(nearest) {
+				continue
+			}
+			mapped = nearest.sub(mapped.sub(nearest))
+		}
+		r[mapped] = true
 	}
 	lib.Dbg("%s\n", toString(r))
 	return len(r)
@@ -82,9 +93,9 @@ func New(scanner *bufio.Scanner, p1 bool) (*manual, error) {
 				return nil, err
 			}
 			if dir == 'x' {
-				r.xfolds = append(r.xfolds, val)
+				r.folds = append(r.folds, line{a: point{val, 0}, n: point{0, 1}})
 			} else {
-				r.yfolds = append(r.yfolds, val)
+				r.folds = append(r.folds, line{a: point{0, val}, n: point{1, 0}})
 			}
 			if p1 {
 				return r, nil

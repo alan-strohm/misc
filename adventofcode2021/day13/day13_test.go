@@ -11,7 +11,7 @@ func TestPart1(t *testing.T) {
 		{FName: "./sample.txt", Part1: true, Want: 17},
 		{FName: "./input.txt", Part1: true, Want: 689},
 		{FName: "./sample.txt", Part1: false, Want: 16},
-		{FName: "./input.txt", Part1: false, Want: 91, Dbg: true},
+		{FName: "./input.txt", Part1: false, Want: 91},
 	}
 	lib.Test(t, testCases, Run)
 }
