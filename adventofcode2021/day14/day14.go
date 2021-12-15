@@ -7,48 +7,44 @@ import (
 	"github.com/alan-strohm/misc/adventofcode2021/lib"
 )
 
-type state struct {
-	id          uint8
-	l, r, to    byte
-	left, right *state
+type id [2]byte
+
+type man struct {
+	rules map[id][2]id
+	tmpl  []id
 }
 
-type states struct {
-	all []*state
-	cur []uint8
-}
-
-func (s *states) next() {
-	next := make([]uint8, 0, 2*len(s.cur))
-	for _, id := range s.cur {
-		next = append(next, s.all[id].left.id)
-		next = append(next, s.all[id].right.id)
+func (m *man) charFreqs(steps int) map[byte]int {
+	idFreqs := make(map[id]int)
+	for _, id := range m.tmpl {
+		idFreqs[id]++
 	}
-	s.cur = next
-}
-
-func (s *states) String() string {
-	r := make([]byte, len(s.cur)+1)
-	for i, id := range s.cur {
-		r[i] = s.all[id].l
-		if i+1 == len(s.cur) {
-			r[i+1] = s.all[id].r
+	for i := 0; i < steps; i++ {
+		nextFreqs := make(map[id]int)
+		for id, count := range idFreqs {
+			for _, cid := range m.rules[id] {
+				nextFreqs[cid] += count
+			}
 		}
+		idFreqs = nextFreqs
 	}
-	return string(r)
+
+	r := make(map[byte]int)
+	rightMost := m.tmpl[len(m.tmpl)-1]
+	for i := 0; i < steps; i++ {
+		rightMost = m.rules[rightMost][1]
+	}
+	r[rightMost[1]]++
+
+	for i, count := range idFreqs {
+		r[i[0]] += count
+	}
+
+	return r
 }
 
-func (s *states) Part1() int {
-	for i := 0; i < 10; i++ {
-		s.next()
-	}
-	freqs := map[byte]int{}
-	for i, id := range s.cur {
-		freqs[s.all[id].l]++
-		if i+1 == len(s.cur) {
-			freqs[s.all[id].r]++
-		}
-	}
+func result(freqs map[byte]int) int {
+	lib.Dbg("%v\n", freqs)
 	var most, least int
 	for _, freq := range freqs {
 		if least == 0 {
@@ -64,32 +60,34 @@ func (s *states) Part1() int {
 	return most - least
 }
 
-func (s *states) Part2() int { return 0 }
+func (m *man) Part1() int {
+	return result(m.charFreqs(10))
+}
+
+func (m *man) Part2() int {
+	return result(m.charFreqs(40))
+}
 
 func New(scanner *bufio.Scanner) (lib.Solution, error) {
-	r := &states{}
+	m := &man{rules: make(map[id][2]id)}
 	scanner.Scan()
-	seed := scanner.Text()
+	tmpl := scanner.Text()
 	scanner.Scan() // Blank
-	ids := map[string]uint8{}
 	for scanner.Scan() {
-		st := state{id: uint8(len(r.all))}
-		if _, err := fmt.Sscanf(scanner.Text(), "%c%c -> %c", &st.l, &st.r, &st.to); err != nil {
+		var l, r, to byte
+		if _, err := fmt.Sscanf(scanner.Text(), "%c%c -> %c", &l, &r, &to); err != nil {
 			return nil, err
 		}
-		ids[string([]byte{st.l, st.r})] = st.id
-		r.all = append(r.all, &st)
+		m.rules[id{l, r}] = [2]id{{l, to}, {to, r}}
 	}
-	for _, st := range r.all {
-		st.left = r.all[ids[string([]byte{st.l, st.to})]]
-		st.right = r.all[ids[string([]byte{st.to, st.r})]]
-	}
+
+	m.tmpl = make([]id, len(tmpl)-1)
 	var prev byte
-	for i, c := range []byte(seed) {
+	for i, c := range []byte(tmpl) {
 		if i != 0 {
-			r.cur = append(r.cur, ids[string([]byte{prev, c})])
+			m.tmpl[i-1] = id{prev, c}
 		}
 		prev = c
 	}
-	return r, nil
+	return m, nil
 }
