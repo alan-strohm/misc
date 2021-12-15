@@ -91,13 +91,14 @@ func (ca *cavern) String() string {
 		}
 		sb.WriteRune('\n')
 	}
+
 	fmt.Fprintf(&sb, "\ndists:\n")
 	for _, row := range ca.cells {
 		for _, c := range row {
 			if c.dist == maxInt {
-				fmt.Fprintf(&sb, "%3c", '*')
+				fmt.Fprintf(&sb, "%4c", '*')
 			} else {
-				fmt.Fprintf(&sb, "%3d", c.dist)
+				fmt.Fprintf(&sb, "%4d", c.dist)
 			}
 		}
 		sb.WriteRune('\n')
@@ -105,14 +106,17 @@ func (ca *cavern) String() string {
 	return sb.String()
 }
 
-func (c *cavern) Part1() int {
+func (c *cavern) shortestPath(start, end *cell) int {
 	q := &cellQueue{}
-	start := c.cells[0][0]
 	q.push(start)
+	visited := map[point]bool{}
 	for len(*q) > 0 {
 		next := q.pop()
-		next.done = true
+		visited[next.pos] = true
 		for _, nbor := range c.neighbors(next) {
+			if visited[nbor.pos] {
+				continue
+			}
 			if nbor.dist == maxInt {
 				q.push(nbor)
 			}
@@ -125,12 +129,34 @@ func (c *cavern) Part1() int {
 	}
 
 	lib.Dbg("%s\n", c)
-	end := c.cells[c.maxY][c.maxX]
 	return end.dist
 }
 
+func (c *cavern) Part1() int {
+	return c.shortestPath(c.cells[0][0], c.cells[c.maxY][c.maxX])
+}
+
 func (c *cavern) Part2() int {
-	return 0
+	oldh, oldw := c.maxY+1, c.maxX+1
+	h, w := oldh*5, oldw*5
+	cells := make([][]*cell, h)
+	for y, _ := range cells {
+		cells[y] = make([]*cell, w)
+		for x, _ := range cells[y] {
+			oldx, oldy := x%oldw, y%oldh
+			oldrisk := c.cells[oldy][oldx].risk
+			risk := oldrisk + (x-oldx)/oldw + (y-oldy)/oldh
+			if risk > 9 {
+				risk = (risk%10 + 1)
+			}
+			cells[y][x] = &cell{pos: point{x, y}, risk: risk, dist: maxInt}
+		}
+	}
+	cells[0][0].dist = 0
+
+	c.cells = cells
+	c.maxX, c.maxY = w-1, h-1
+	return c.shortestPath(c.cells[0][0], c.cells[c.maxY][c.maxX])
 }
 
 const maxInt = int(^uint(0) >> 1)
