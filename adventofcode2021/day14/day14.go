@@ -30,16 +30,12 @@ func (m *man) charFreqs(steps int) map[byte]int {
 	}
 
 	r := make(map[byte]int)
-	rightMost := m.tmpl[len(m.tmpl)-1]
-	for i := 0; i < steps; i++ {
-		rightMost = m.rules[rightMost][1]
-	}
-	r[rightMost[1]]++
+	rightMost := m.tmpl[len(m.tmpl)-1][1]
+	r[rightMost]++
 
 	for i, count := range idFreqs {
 		r[i[0]] += count
 	}
-
 	return r
 }
 
