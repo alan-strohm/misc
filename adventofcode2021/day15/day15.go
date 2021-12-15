@@ -2,8 +2,8 @@ package day15
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/alan-strohm/misc/adventofcode2021/lib"
@@ -16,6 +16,7 @@ func (a point) add(b point) point { return point{a.x + b.x, a.y + b.y} }
 
 type cell struct {
 	pos        point
+	qidx       int
 	risk, dist int
 	done       bool
 	prev       *cell
@@ -25,17 +26,22 @@ type cellQueue []*cell
 
 func (q cellQueue) Len() int           { return len(q) }
 func (q cellQueue) Less(i, j int) bool { return q[i].dist < q[j].dist }
-func (q cellQueue) Swap(i, j int)      { q[i], q[j] = q[j], q[i] }
+func (q cellQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+	q[i].qidx, q[j].qidx = i, j
+}
 
-func (q *cellQueue) pop() *cell {
-	sort.Sort(*q)
-	r := (*q)[0]
-	*q = (*q)[1:len(*q)]
+func (q *cellQueue) Pop() interface{} {
+	r := (*q)[len(*q)-1]
+	r.qidx = -1
+	*q = (*q)[0 : len(*q)-1]
 	return r
 }
 
-func (q *cellQueue) push(cells ...*cell) {
-	*q = append(*q, cells...)
+func (q *cellQueue) Push(x interface{}) {
+	it := x.(*cell)
+	it.qidx = len(*q)
+	*q = append(*q, it)
 }
 
 func (q *cellQueue) String() string {
@@ -108,22 +114,23 @@ func (ca *cavern) String() string {
 
 func (c *cavern) shortestPath(start, end *cell) int {
 	q := &cellQueue{}
-	q.push(start)
+	heap.Push(q, start)
 	visited := map[point]bool{}
 	for len(*q) > 0 {
-		next := q.pop()
+		next := heap.Pop(q).(*cell)
 		visited[next.pos] = true
 		for _, nbor := range c.neighbors(next) {
 			if visited[nbor.pos] {
 				continue
 			}
 			if nbor.dist == maxInt {
-				q.push(nbor)
+				heap.Push(q, nbor)
 			}
 			alt := next.dist + nbor.risk
 			if alt < nbor.dist {
 				nbor.prev = next
 				nbor.dist = alt
+				heap.Fix(q, nbor.qidx)
 			}
 		}
 	}
