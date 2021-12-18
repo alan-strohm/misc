@@ -13,13 +13,19 @@ type testCase struct {
 }
 
 func TestPart1(t *testing.T) {
-	testCases := []testCase{
-		{sample, 45},
-		{input, 5565},
-	}
+	testCases := []testCase{{sample, 45}, {input, 5565}}
 	for _, tc := range testCases {
 		if got := part1(tc.in); got != tc.want {
 			t.Errorf("part1(%s) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestPart2(t *testing.T) {
+	testCases := []testCase{{sample, 112}, {input, 2118}}
+	for _, tc := range testCases {
+		if got := part2(tc.in); got != tc.want {
+			t.Errorf("part2(%s) = %d, want %d", tc.in, got, tc.want)
 		}
 	}
 }
