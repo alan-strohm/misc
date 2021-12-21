@@ -135,6 +135,8 @@ func TestDay18(t *testing.T) {
 	testCases := []*lib.TestCase{
 		{FName: "./sample.txt", Part1: true, Want: 4140},
 		{FName: "./input.txt", Part1: true, Want: 4469},
+		{FName: "./sample.txt", Part1: false, Want: 3993},
+		{FName: "./input.txt", Part1: false, Want: 4770},
 	}
-	lib.Test(t, testCases, Run)
+	lib.Test(t, testCases, lib.Convert(New))
 }

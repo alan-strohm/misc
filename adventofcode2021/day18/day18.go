@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+
+	"github.com/alan-strohm/misc/adventofcode2021/lib"
 )
 
 const maxDepth = 3
@@ -170,11 +172,34 @@ func ceil(num, div int) int {
 	return int(math.Ceil(float64(num) / float64(div)))
 }
 
-func Run(scanner *bufio.Scanner, p1 bool) (int, error) {
-	scanner.Scan()
-	sum := parse(scanner.Text())
+type hw []*number
+
+func New(scanner *bufio.Scanner) (lib.Solution, error) {
+	r := &hw{}
 	for scanner.Scan() {
-		sum = sum.add(parse(scanner.Text()))
+		*r = append(*r, parse(scanner.Text()))
 	}
-	return sum.magnitude(), nil
+	return r, nil
+}
+
+func (h *hw) Part1() int {
+	sum := (*h)[0]
+	for _, n := range (*h)[1:] {
+		sum = sum.add(n)
+	}
+	return sum.magnitude()
+}
+
+func (h *hw) Part2() int {
+	max := 0
+	for i, a := range *h {
+		for j, b := range *h {
+			if i != j {
+				if mag := a.add(b).magnitude(); mag > max {
+					max = mag
+				}
+			}
+		}
+	}
+	return max
 }
