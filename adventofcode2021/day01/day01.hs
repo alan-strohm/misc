@@ -1,10 +1,11 @@
 import Test.Hspec
 
 part1 :: (Ord a, Num p) => [a] -> p
-part1 xs = sum [ if y > x then 1 else 0 | (x, y) <- zip xs (tail xs) ]
+part1 xs = sum [ 1 | (x, y) <- zip xs (tail xs), y > x ]
 
 part2 :: (Ord a, Num a, Num p) => [a] -> p
-part2 xs = part1 [ x+y+z | (x, y, z) <- zip3 xs (tail xs) (tail (tail xs))]
+part2 xs = part1 [ x+y+z | (x, y, z) <- zip3 xs ys zs ]
+  where (ys, zs) = (tail xs, tail ys)
 
 main :: IO ()
 main = hspec $ do
