@@ -1,18 +1,13 @@
 import Test.Hspec
 
-gtr :: (Ord a, Num p) => (a, a) -> p
-gtr (x, y)
-  | y > x = 1
-  | otherwise = 0
-
 part1 :: (Ord a, Num p) => [a] -> p
-part1 x = sum (map gtr (zip x (tail x)))
-
-sum3 :: (Num a) => (a, a, a) -> a
-sum3 (x, y, z) = x+y+z
+part1 xs = sum [ gtr x y | (x, y) <- zip xs (tail xs) ]
+  where gtr x y
+          | y > x = 1
+          | otherwise = 0
 
 part2 :: (Ord a, Num a, Num p) => [a] -> p
-part2 x = part1 (map sum3 (zip3 x (tail x) (tail (tail x))))
+part2 xs = part1 [ x+y+z | (x, y, z) <- zip3 xs (tail xs) (tail (tail xs))]
 
 main :: IO ()
 main = hspec $ do
