@@ -1,5 +1,6 @@
 import Data.Bits(xor)
 import Data.Char(digitToInt)
+import Data.List(transpose)
 import Debug.Trace
 import Test.Hspec
 
@@ -10,33 +11,25 @@ cntOnes :: Int -> Int -> Int
 cntOnes x 1 = x+1
 cntOnes x 0 = x-1
 
-accOnes :: [Int] -> [Int] -> [Int]
-accOnes [] [] = []
-accOnes (x:restx) (y:resty) = cntOnes x y : ( accOnes restx resty )
-
 toDec :: [Int] -> Int
-toDec = foldl (\acc x -> 2*acc+x) 0
+toDec = foldl ((+) . (2*)) 0
 
 part1 :: String -> Int
-part1 s =
-  let is = parse s
-      len = length $ head is
-      cnts = foldl accOnes (replicate len 0) is
-      bin = map (fromEnum . (>0)) cnts
-  in (toDec bin) * (toDec $ map (xor 1) bin)
+part1 s = gamma * epsilon
+  where cnts = map (foldl cntOnes 0) $ transpose $ parse s
+        gamma = toDec $ map (fromEnum . (>=0)) cnts
+        epsilon = toDec $ map (fromEnum . (<0)) cnts
 
 findRating :: (Int -> Bool) -> [[Int]] -> [Int]
 findRating pred [x] = x
-findRating pred is =
-  let want = fromEnum $ pred $ foldl cntOnes 0 $ map head is
-   in want : (findRating pred $ map tail $ filter ((want==) . head) is)
+findRating pred is = want : (findRating pred $ map tail $ filter ((want==) . head) is)
+  where want = fromEnum $ pred $ foldl cntOnes 0 $ head $ transpose is
 
 part2 :: String -> Int
-part2 s =
-  let is = parse s
-      oo = toDec $ findRating (>=0) is
-      co2 = toDec $ findRating (<0) is
-  in oo * co2
+part2 s = oo * co2
+  where is = parse s
+        oo = toDec $ findRating (>=0) is
+        co2 = toDec $ findRating (<0) is
 
 run :: (String -> Int) -> FilePath -> IO Int
 run f fname = do

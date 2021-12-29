@@ -24,7 +24,7 @@ run f fname = do
 
 main :: IO ()
 main = hspec $ do
-  describe "day1" $ do
+  describe "day2" $ do
     it "part1 sample" $ do
       run (part 1) "sample.txt" `shouldReturn` 150
     it "(part 1) input" $ do
