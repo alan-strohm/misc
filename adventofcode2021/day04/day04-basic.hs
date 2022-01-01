@@ -1,6 +1,5 @@
 import Data.List(transpose, find)
 import Data.List.Split(splitOn, wordsBy)
-import Debug.Trace
 import Test.Hspec
 
 data Board = Board { rows :: [[Int]] } deriving (Show)
@@ -23,7 +22,7 @@ score :: Board -> Int
 score = sum . map (sum . filter (/= -1)) . rows
 
 callNum :: Input -> Input
-callNum i = Input{ nums = tail $ nums i, boards = map (mark $ head $ nums i) $ boards i } 
+callNum i = Input{ nums = tail $ nums i, boards = map (mark $ head $ nums i) $ boards i }
 
 play :: (Input -> Maybe Board) -> Input -> Int
 play done i = try $ done next
