@@ -8,6 +8,21 @@ segs = "abcdefg"
 
 digits = ["abcefg", "cf", "acdeg", "acdfg", "bcdf", "abdfg", "abdefg", "acf", "abcdefg", "abcdfg"]
 
+-- Merge two lists of pairs which are both sorted on fst.  The second list contains a function which is called on the snd of the first list to produce the resulting list.
+merge :: (Ord a, Show a) => [(a, b)] -> [(a, b -> c)] -> [c]
+merge [] _ = []
+merge _ [] = []
+merge axs@((xa, b):xs) ays@((ya, f):ys) 
+  | xa == ya = f b : merge axs ys -- the next ya could be a duplicate.
+  | xa < ya = merge xs ays 
+  | xa > ya = merge axs ys
+
+
+-- Apply a character mapping to string.  Assumes the mapping is sorted by fst.
+-- Sorts the input and the output.
+apply :: [(Char, Char)] -> String -> String
+apply m s = sort $ merge m $ zip (sort s) $ repeat id
+
 makeKey :: [String] -> String
 makeKey = intercalate " " . sort . map sort
 
@@ -16,31 +31,26 @@ buildMappings ms = sortOn fst $ zip (map getKey ms) $ map (sortOn fst . map flip
   where getKey m = makeKey $ map (apply m) digits
         flipPair (x,y) = (y,x)
 
+-- One mapping for each permutation.
+-- fst = the mapping applied to all 10 digits with the results sorted (each
+--       digit is sorted, the list of digits is sorted and the total set of
+--       mappings is sorted by fst).  The format is produced by makeKey.
+-- snd = A reverse mapping to convert strings with this permutation back to the
+--       canonical form.
 mappings = buildMappings $ map (zip segs) $ permutations segs
 
-merge :: (Ord a, Show a) => [(a, b)] -> [(a, b -> c)] -> [c]
-merge [] _ = []
-merge _ [] = []
-merge axs@((xa, b):xs) ays@((ya, f):ys) 
-  | xa == ya = f b : merge axs ys -- there could be duplicate ys
-  | xa < ya = merge xs ays 
-  | xa > ya = merge axs ys
-
-apply :: [(Char, Char)] -> String -> String
-apply m s = sort $ merge m $ zip (sort s) $ repeat id
-
-parse :: String -> [[Maybe Int]]
-parse = merge mappings . sortOn fst . map parseOne . map (splitOn " | ") . lines
-  where parseOne [l, r] = (makeKey $ words l, mkConvert r)
+parse :: String -> [[Int]]
+parse = fromMaybe [] . sequence . merge mappings . prepMerge
+  where prepMerge = sortOn fst . map parseOne . map (splitOn " | ") . lines
+        parseOne [l, r] = (makeKey $ words l, mkConvert r)
         lookup s = elemIndex (sort s) digits
-        mkConvert s = \m -> map (lookup . apply m) $ words s
+        mkConvert s = \m -> sequence $ map (lookup . apply m) $ words s
 
 part1 :: String -> Int
-part1 = foldl1 (+) . map (length . filter ((flip elem) $ map Just [1, 4, 7, 8])) . parse
+part1 = foldl1 (+) . map (length . filter ((flip elem) [1, 4, 7, 8])) . parse
 
 part2 :: String -> Int
-part2 = fromMaybe 0 . (sum <$>) . sequence . map ((fromDigits <$>) . sequence) . parse
-  where fromDigits = foldl1 ((+) . (10*))
+part2 = sum . map (foldl1 ((+) . (10*))) . parse
 
 run :: (String -> Int) -> FilePath -> IO Int
 run f fname = do
