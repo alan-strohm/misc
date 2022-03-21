@@ -30,8 +30,11 @@ var checkErr = errors.New("missing or extra inputs")
 func checkFiles(confPath string, conf *Conf) ([]string, error) {
 	var rErr error
 	r := make([]string, 0)
-	fileMap := map[string]bool{confPath: true, conf.Output: true}
 	dir := filepath.Dir(confPath)
+	fileMap := map[string]bool{
+		confPath:                        true,
+		filepath.Join(dir, conf.Output): true,
+	}
 	for _, in := range conf.Inputs {
 		matches, err := filepath.Glob(filepath.Join(dir, in))
 		if err != nil {
