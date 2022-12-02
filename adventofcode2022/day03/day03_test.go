@@ -24,8 +24,8 @@ func TestPriority(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	testCases := []*lib.TestCase{
-		{FName: "./input.txt", Part1: true, Want: 0},
-		//{FName: "./input.txt", Part1: false, Want: 12411},
+		{FName: "./input.txt", Part1: true, Want: 8298},
+		{FName: "./input.txt", Part1: false, Want: 2708},
 	}
 	lib.Test(t, testCases, Run)
 }

@@ -70,13 +70,36 @@ func newRucksack(items []rune) *rucksack {
 	return r
 }
 
+func isAuthentic(idx int, group []*rucksack) bool {
+	for _, sack := range group {
+		if sack.types[idx].bucket == noBucket {
+			return false
+		}
+	}
+	return true
+}
+
 func Run(s *bufio.Scanner, part1 bool) (int, error) {
-	part1r := 0
+	part1r, part2r := 0, 0
+	group := make([]*rucksack, 0, 3)
 	for s.Scan() {
 		sack := newRucksack([]rune(s.Text()))
 		for _, info := range sack.buckets[bothBuckets].types {
 			part1r += priorityIndex(info.type_) + 1
 		}
+		group = append(group, sack)
+		if len(group) == 3 {
+			for i, _ := range group[0].types {
+				if isAuthentic(i, group) {
+					part2r += i + 1
+					break
+				}
+			}
+			group = group[0:0]
+		}
 	}
-	return part1r, nil
+	if part1 {
+		return part1r, nil
+	}
+	return part2r, nil
 }
