@@ -40,8 +40,8 @@ func must(err error) {
 	}
 }
 
-func parse(l string) (them, us rune) {
-	_, err := fmt.Sscanf(l, "%c %c", &them, &us)
+func parse(l string) (left, right rune) {
+	_, err := fmt.Sscanf(l, "%c %c", &left, &right)
 	must(err)
 	return
 }
@@ -49,11 +49,11 @@ func parse(l string) (them, us rune) {
 func Run(s *bufio.Scanner, part1 bool) (int, error) {
 	sum := 0
 	for s.Scan() {
-		them, us := parse(s.Text())
+		l, r := parse(s.Text())
 		if part1 {
-			sum += scorePart1(them, us)
+			sum += scorePart1(l, r)
 		} else {
-			sum += scorePart2(them, us)
+			sum += scorePart2(l, r)
 		}
 	}
 	return sum, nil
