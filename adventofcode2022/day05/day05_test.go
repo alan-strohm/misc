@@ -6,17 +6,25 @@ import (
 	"testing"
 )
 
-func TestPart1(t *testing.T) {
-	fName := "./input.txt"
-	f, err := os.Open(fName)
-	if err != nil {
-		t.Fatalf("couldn't open file %s: %s", fName, err)
+func TestAll(t *testing.T) {
+	testCases := []struct {
+		part1 bool
+		want  string
+	}{
+		{part1: true, want: "DHBJQJCCW"},
+		{part1: false, want: "WJVRLSJJT"},
 	}
-	defer f.Close()
+	for _, tc := range testCases {
+		fName := "./input.txt"
+		f, err := os.Open(fName)
+		if err != nil {
+			t.Fatalf("couldn't open file %s: %s", fName, err)
+		}
+		defer f.Close()
 
-	got := part1(bufio.NewScanner(f))
-	want := "DHBJQJCCW"
-	if err != nil || got != want {
-		t.Errorf("part1(%s) = %v, want %v", fName, got, want)
+		got := Run(bufio.NewScanner(f), tc.part1)
+		if err != nil || got != tc.want {
+			t.Errorf("Run(%s, %t) = %v, want %v", fName, tc.part1, got, tc.want)
+		}
 	}
 }

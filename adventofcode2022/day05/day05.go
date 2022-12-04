@@ -55,12 +55,14 @@ func parseStacks(s *bufio.Scanner) *stacks {
 	return &r
 }
 
-func (sp *stacks) move(num, src, dst int) {
+func (sp *stacks) move(num, src, dst int, is9000 bool) {
 	s := *sp
 	newLen := len(s[src]) - num
 	toMove := s[src][newLen:len(s[src])]
 	s[src] = s[src][0:newLen]
-	reverse(toMove)
+	if is9000 {
+		reverse(toMove)
+	}
 	s[dst] = append(s[dst], toMove...)
 }
 
@@ -83,11 +85,11 @@ func parseMove(s string) (r move) {
 	return
 }
 
-func part1(scanner *bufio.Scanner) string {
+func Run(scanner *bufio.Scanner, part1 bool) string {
 	s := parseStacks(scanner)
 	for scanner.Scan() {
 		m := parseMove(scanner.Text())
-		s.move(m.num, m.src, m.dst)
+		s.move(m.num, m.src, m.dst, part1)
 	}
 	return string(s.top())
 }
