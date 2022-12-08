@@ -129,26 +129,46 @@ func buildFs(cmds []cmd) *fsNode {
 	return r
 }
 
-func part1(n *fsNode) (size, agg int) {
-	for _, n := range n.children {
-		s, a := part1(n)
-		size += s
-		agg += a
+func duHelper(p *fsNode, path string, r map[string]int) {
+	self := 0
+	for _, n := range p.children {
+		subPath := path + n.name + "/"
+		duHelper(n, subPath, r)
+		self += r[subPath]
 	}
-	for _, f := range n.files {
-		size += f.size
+	for _, f := range p.files {
+		self += f.size
 	}
-	if size <= 100_000 {
-		agg += size
-	}
-	return
+	r[path] = self
 }
 
+func du(n *fsNode) map[string]int {
+	r := map[string]int{}
+	duHelper(n, "/", r)
+	return r
+}
+
+const totalSize = 70_000_000
+const neededSize = 30_000_000
+
 func Run(s *bufio.Scanner, isPart1 bool) (int, error) {
-	fs := buildFs(parseCmds(s))
+	sizes := du(buildFs(parseCmds(s)))
 	if isPart1 {
-		_, agg := part1(fs)
+		agg := 0
+		for _, size := range sizes {
+			if size <= 100_000 {
+				agg += size
+			}
+		}
 		return agg, nil
 	}
-	return 0, nil
+	free := totalSize - sizes["/"]
+	needed := neededSize - free
+	min := totalSize
+	for _, size := range sizes {
+		if size > needed && size < min {
+			min = size
+		}
+	}
+	return min, nil
 }
