@@ -2,6 +2,8 @@ package lib
 
 import (
 	"bufio"
+	"flag"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -27,5 +29,13 @@ func Test(t *testing.T, tcs []*TestCase, s SolutionFn) {
 		if err != nil || got != tc.Want {
 			t.Errorf("run(%s, %t) = %v, %v, want %v, %v", tc.FName, tc.Part1, got, err, tc.Want, nil)
 		}
+	}
+}
+
+var dbgFlag = flag.Bool("dbg", false, "Print debug info.")
+
+func Dbg(format string, a ...interface{}) {
+	if *dbgFlag {
+		fmt.Printf(format, a...)
 	}
 }
