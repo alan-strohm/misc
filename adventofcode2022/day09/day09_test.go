@@ -10,7 +10,7 @@ import (
 func TestAll(t *testing.T) {
 	testCases := []*lib.TestCase{
 		{FName: "./input.txt", Part1: true, Want: 6486},
-		{FName: "./input.txt", Part1: false, Want: 0},
+		{FName: "./input.txt", Part1: false, Want: 2678},
 	}
 	lib.Test(t, testCases, Run)
 }

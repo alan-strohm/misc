@@ -59,14 +59,16 @@ func parseCmds(s *bufio.Scanner) (r []cmd) {
 	return
 }
 
-func countVisited(cmds []cmd) int {
-	h, t := pos([2]int{0, 0}), pos([2]int{0, 0})
-	visited := map[[2]int]bool{t: true}
+func countVisited(length int, cmds []cmd) int {
+	rope := make([]pos, length)
+	visited := map[[2]int]bool{rope[len(rope)-1]: true}
 	for _, c := range cmds {
 		for i := 0; i < c.count; i++ {
-			h = h.add(c.dir)
-			t = newTail(h, t)
-			visited[t] = true
+			rope[0] = rope[0].add(c.dir)
+			for i := 1; i < len(rope); i++ {
+				rope[i] = newTail(rope[i-1], rope[i])
+			}
+			visited[rope[len(rope)-1]] = true
 		}
 	}
 	return len(visited)
@@ -75,8 +77,8 @@ func countVisited(cmds []cmd) int {
 func Run(s *bufio.Scanner, isPart1 bool) (int, error) {
 	cmds := parseCmds(s)
 	if isPart1 {
-		return countVisited(cmds), nil
+		return countVisited(2, cmds), nil
 		return 0, nil
 	}
-	return 0, nil
+	return countVisited(10, cmds), nil
 }
