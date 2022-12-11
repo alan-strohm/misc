@@ -9,25 +9,13 @@ import (
 
 type vec struct{ x, y int }
 
-func (v vec) add(o vec) vec {
-	return vec{x: v.x + o.x, y: v.y + o.y}
-}
+func (v vec) add(o vec) vec   { return vec{x: v.x + o.x, y: v.y + o.y} }
+func (v vec) scale(s int) vec { return vec{x: v.x * s, y: v.y * s} }
 
 type cell struct {
-	height int8
-	maxs   [2][2]int8
-}
-
-func (c *cell) visible() bool {
-	for y, row := range c.maxs {
-		for x, max := range row {
-			if max < c.height {
-				lib.Dbg("%d%c ", max, dirNames[y][x])
-				return true
-			}
-		}
-	}
-	return false
+	height  int8
+	visible bool
+	score   int
 }
 
 type grid [][]cell
@@ -40,84 +28,87 @@ func (g grid) get(p vec) *cell {
 	return &g[p.y][p.x]
 }
 
-var dirs = [2][2]vec{
-	{{x: 0, y: 1}, {x: 1, y: 0}},
-	{{x: 0, y: -1}, {x: -1, y: 0}},
-}
-
-const (
-	majorDir = 0
-	minorDir = 1
+var (
+	north = vec{x: 0, y: -1}
+	south = north.scale(-1)
+	east  = vec{x: 1, y: 0}
+	west  = east.scale(-1)
 )
 
-var dirNames = [2][2]rune{{'S', 'E'}, {'N', 'W'}}
+// Fill one line of cell info.  The line is either a row or a column in either
+// forwards or reverse order.
+func fillLine(line []*cell) {
+	maxHeight := float64(-1)
+	trees := [10]int{} // Number of trees visible at this position from each of the 10 heights.
+	for _, c := range line {
+		c.score *= trees[c.height]
+		if float64(c.height) > maxHeight {
+			c.visible = true
+		}
+		maxHeight = math.Max(maxHeight, float64(c.height))
+		for h, _ := range trees {
+			if int8(h) > c.height {
+				trees[h]++
+			} else {
+				trees[h] = 1
+			}
+		}
+	}
+}
 
-func (g grid) fillMaxes() {
-	lib.Dbg("Filling maxes...\n")
-	// Traverse the grid from the upper left to the lower right and then return
-	// in reverse order.
-	p := vec{x: 0, y: 0}
-	for y, fwd := range dirs {
-		revY := (y + 1) % len(dirs)
-		rev := dirs[revY]
-		lib.Dbg("Rev: %v\n", rev)
-		for start := p; g.contains(p); p = p.add(fwd[majorDir]) {
-			for p.x = start.x; g.contains(p); p = p.add(fwd[minorDir]) {
-				// Keep a running count of the max height seen so far in the opposite
-				// direction of the direction of travel.
-				c := g.get(p)
-				for x, dir := range rev {
-					prevP := p.add(dir)
-					if !g.contains(prevP) {
-						c.maxs[revY][x] = -1
-					} else {
-						prevC := g.get(prevP)
-						c.maxs[revY][x] = int8(math.Max(float64(prevC.maxs[revY][x]), float64(prevC.height)))
-					}
-					lib.Dbg("%d%c", c.maxs[revY][x], dirNames[revY][x])
+func (g grid) fill() {
+	// Traverse each row forwards and backwards. Then traverse each column forwards and backwards.
+	majors := []vec{south, east} // Each row going south, then each column going east.
+	// Rows are traversed east and then back west.  Columns are traversed first south and then norht.
+	minors := [2][2]vec{{east, west}, {south, north}}
+	for i, major := range majors {
+		p := vec{x: 0, y: 0}
+		for ; g.contains(p); p = p.add(major) {
+			for _, minor := range minors[i] {
+				line := []*cell{}
+				for ; g.contains(p); p = p.add(minor) {
+					line = append(line, g.get(p))
 				}
+				fillLine(line)
+				p = p.add(minor.scale(-1)) // Get back on the grid.
 				lib.Dbg(" ")
 			}
-			// Usually we'll reset x to start.x on the next loop.  This allows
-			// g.contains() to succeed and also means that at the end of the outer
-			// loop we're at the lower-right corner for the reverse pass.
-			p = p.add(rev[minorDir])
 			lib.Dbg("\n")
 		}
-		p = p.add(rev[majorDir])
-		lib.Dbg("\n\n")
+		lib.Dbg("\n")
 	}
+}
+
+func (g grid) solve() (numVisible, maxScore int) {
+	for _, row := range g {
+		for _, c := range row {
+			if c.score > maxScore {
+				maxScore = c.score
+			}
+			if c.visible {
+				numVisible++
+			}
+		}
+	}
+	return
 }
 
 func parseGrid(s *bufio.Scanner) (r grid) {
 	for s.Scan() {
 		row := make([]cell, len(s.Text()))
 		for i, b := range []byte(s.Text()) {
-			row[i].height = int8(b - '0')
+			row[i] = cell{height: int8(b - '0'), score: 1}
 		}
 		r = append(r, row)
 	}
-	r.fillMaxes()
-	return
-}
-
-func (g grid) countVisible() (visible int) {
-	lib.Dbg("Counting visible...\n")
-	for _, row := range g {
-		for _, cell := range row {
-			if cell.visible() {
-				visible++
-			}
-		}
-		lib.Dbg("\n")
-	}
+	r.fill()
 	return
 }
 
 func Run(s *bufio.Scanner, isPart1 bool) (int, error) {
-	g := parseGrid(s)
+	numVisible, maxScore := parseGrid(s).solve()
 	if isPart1 {
-		return g.countVisible(), nil
+		return numVisible, nil
 	}
-	return 0, nil
+	return maxScore, nil
 }
