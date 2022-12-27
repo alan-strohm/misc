@@ -8,8 +8,8 @@ import (
 
 func TestAll(t *testing.T) {
 	testCases := []*lib.TestCase{
+		{FName: "./ex.txt", Part1: true, Want: 13140},
 		{FName: "./input.txt", Part1: true, Want: 12540},
-		{FName: "./input.txt", Part1: false, Want: 0},
 	}
 	lib.Test(t, testCases, Run)
 }

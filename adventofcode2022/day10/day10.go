@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -23,31 +22,43 @@ func must(err error) {
 	}
 }
 
-func part1(s *bufio.Scanner, periods []int) int {
-	signalSum := 0
-	numCycles := map[string]int{"noop": 1, "addx": 2}
-	sort.Ints(periods)
-	cycle, reg := 1, 1
-	for s.Scan() {
-		fields := strings.Fields(s.Text())
-		time := numCycles[fields[0]]
-		if len(periods) > 0 && periods[0] < cycle+time {
+func run(s *bufio.Scanner) int {
+	periods := []int{20, 60, 100, 140, 180, 220}
+	signalSum, reg := 0, 1
+	toAdd := []int{}
+	for i := 0; i < 240; i++ {
+		if i%40 == 0 {
+			fmt.Println()
+		}
+		if i%40 >= reg-1 && i%40 <= reg+1 {
+			fmt.Printf("#")
+		} else {
+			fmt.Printf(".")
+		}
+		cycle := i + 1
+		if len(periods) > 0 && periods[0] == cycle {
 			signalSum += periods[0] * reg
 			periods = periods[1:]
 		}
-		cycle += time
-		if len(fields) > 1 {
+		if len(toAdd) > 0 {
+			reg += toAdd[0]
+			toAdd = toAdd[1:]
+			continue
+		}
+		if !s.Scan() {
+			break
+		}
+		fields := strings.Fields(s.Text())
+		if fields[0] == "addx" {
 			inc, err := strconv.Atoi(fields[1])
 			must(err)
-			reg += inc
+			toAdd = append(toAdd, inc)
 		}
 	}
+	fmt.Println()
 	return signalSum
 }
 
 func Run(s *bufio.Scanner, isPart1 bool) (int, error) {
-	if isPart1 {
-		return part1(s, []int{20, 60, 100, 140, 180, 220}), nil
-	}
-	return 0, nil
+	return run(s), nil
 }
