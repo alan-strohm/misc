@@ -15,7 +15,7 @@
       name = "adventofcode2022";
       src = ./.;
       #vendorSha256 = pkgs.lib.fakeSha256;
-      vendorSha256 = "sha256-pQpattmS9VmO3ZIQUFn66az8GSmB4IvYhTTCFn6SUmo=";
+      vendorSha256 = "sha256-lTWbCprn4B9/vFCAvEEBYOl8Dbx2AfQYm7BoDtvMmH0=";
     };
   });
 }

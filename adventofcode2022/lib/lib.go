@@ -34,6 +34,13 @@ func Test(t *testing.T, tcs []*TestCase, s SolutionFn) {
 
 var dbgFlag = flag.Bool("dbg", false, "Print debug info.")
 
+func Must(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
 func Dbg(format string, a ...interface{}) {
 	if *dbgFlag {
 		fmt.Printf(format, a...)
