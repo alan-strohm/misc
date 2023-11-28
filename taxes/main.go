@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	pdfcpu "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpuapi "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"gopkg.in/yaml.v2"
 )
 
@@ -74,7 +75,7 @@ func run(confPath string) error {
 		return err
 	}
 	out := filepath.Join(filepath.Dir(confPath), conf.Output)
-	return pdfcpu.MergeCreateFile(files, out, nil)
+	return pdfcpuapi.MergeCreateFile(files, out, pdfcpu.NewDefaultConfiguration())
 }
 
 func main() {
