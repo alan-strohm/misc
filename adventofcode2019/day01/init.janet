@@ -6,6 +6,7 @@
   (as-> file $
         (file/open $)
         (file/read $ :all)
+        (string/trim $)
         (string/split "\n" $)))
 
 (defn fuel [mass]
@@ -21,7 +22,7 @@
 
 (defn run [file fun]
   (var total 0)
-  (each line (lines file) (+= total (if (= line "") 0 (fun (scan-number line)))))
+  (each line (lines file) (+= total (fun (scan-number line))))
   total)
 
 (defn day01 [file] (run file fuel))
