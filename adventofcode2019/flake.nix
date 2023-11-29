@@ -4,12 +4,15 @@
   '';
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2305.tar.gz";
+    flake-utils.url = "github:numtide/flake-utils";
   };
-  outputs = { self, ... }@inputs: {
-    devShells.aarch64-darwin.default = let
-      pkgs = inputs.nixpkgs.legacyPackages.aarch64-darwin;
-    in pkgs.mkShell {
+  outputs = { self, flake-utils, ... }@inputs:
+  flake-utils.lib.eachDefaultSystem (system:
+  let
+    pkgs = inputs.nixpkgs.legacyPackages.${system};
+  in rec {
+    devShells.default = pkgs.mkShell {
       packages = with pkgs; [ janet jpm ];
     };
-  };
+  });
 } 
