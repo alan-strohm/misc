@@ -82,11 +82,13 @@
 (defn day2 [file]
   (def cards (load file))
   (each card cards
-    (print (string/format "playing card %d" (card :card-num)))
+    #(print (string/format "playing card %d" (card :card-num)))
     (each i (range (num-winning card))
-      (print (string/format "  adding %d copies of card %d" (card :count) (+ (card :card-num) i 1)))
-      (update-in cards [(+ (card :card-num) i) :count] + (card :count))
-      ))
+      (let [dst (+ (card :card-num) i)
+            copies (card :count)]
+        #(print (string/format "  adding %d copies of card %d" copies dst))
+        (update-in cards [dst :count] + copies)
+      )))
   (total cards))
 
 (judge/test (day2 "./day04/example.txt") 30)
