@@ -25,15 +25,8 @@
 (judge/test (mirror 3 2 0) nil)
 (judge/test (mirror 4 2 0) 3)
 
-(defn rotate [lines]
-  (var result @[])
-  (loop [x :range [0 (length (get lines 0))]
-         :before (var line @"")
-         :after (array/push result (string line))
-         y :range [0 (length lines)]
-         :let [char (x (y lines))]]
-    (buffer/push-byte line char))
-  result)
+(defn rotate [arr]
+  (map string/from-bytes ;arr))
 
 (judge/test (rotate ["abc" "def"]) @["ad" "be" "cf"])
 (judge/test (rotate ["ad" "be" "cf"]) @["abc" "def"])
@@ -42,8 +35,7 @@
   (def errs (array/new-filled (length (0 lines)) 0))
   (put errs 0 math/int-max)
   (loop [line :in lines
-         x :range [0 (length line)]
-         :let [char (x line)]
+         [x char] :pairs line
          m :range [0 (length errs)]
          :let [mirror-x (mirror (length line) m x)]]
     (if (and mirror-x (not= char (mirror-x line)))

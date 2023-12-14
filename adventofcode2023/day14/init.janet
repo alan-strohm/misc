@@ -112,12 +112,17 @@ O.#..O.#.#
 (defn part2 [str]
   (def grid (load str))
   (def seen @{})
+
   (var cnt 0)
   (var loop-start 0)
+
   (loop [k :iterate (key (spin grid))]
-    (when (in seen k) (set loop-start (in seen k)) (break))
+    (when-let [start (seen k)]
+      (set loop-start start)
+      (break))
     (put seen k cnt)
     (++ cnt))
+
   (def loop-len (- cnt loop-start))
   (def target-cnt (-> 1000000000 (- 1) (- loop-start) (% loop-len) (+ loop-start)))
   (calc-load
@@ -125,4 +130,6 @@ O.#..O.#.#
     (length grid)))
 
 (judge/test (part2 test-input) 64)
-(judge/test (part2 real-input) 104671)
+
+# 13s 
+# (judge/test (part2 real-input) 104671)
