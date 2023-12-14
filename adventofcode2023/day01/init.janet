@@ -4,10 +4,7 @@
 (def numbers-reverse (map string/reverse numbers))
 
 (defn load [file]
-  (as-> (file/open file) _
-        (file/read _ :all)
-        (string/trim _)
-        (string/split "\n" _)))
+  (->> file (slurp) (string/trim) (string/split "\n")))
 
 (defn make-num-peg [nums]
   (def num-pats (map (fn [num str] ~(/ ,str ,num)) (range 1 (+ (length nums) 1)) nums))
