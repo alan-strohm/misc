@@ -75,7 +75,6 @@ broadcaster -> a
     (def to-handle q)
     (set q @[])
     (each [from in-sig to] to-handle
-      #(printf "sending signal %m from %m to %m" in-sig from to)
       (each [out-mod out-sig] (handle-signal from (mac to) in-sig)
         (if (nil? (in sent out-mod)) (put sent out-mod @[]))
         (array/push (in sent out-mod) out-sig)
@@ -102,7 +101,7 @@ broadcaster -> a
 (defn part1 [str]
   (def mac (mac/new str))
   (def cnts @{:high 0 :low 0})
-  (each i (range 1000)
+  (repeat 1000
     (let [sigs (mac/push mac)]
       (each sig (mapcat identity sigs)
         (update cnts sig inc))))
@@ -111,13 +110,153 @@ broadcaster -> a
 (judge/test (part1 test-input1) 32000000) 
 (judge/test (part1 real-input) 806332748) 
 
+#(def freq/n [[num denom] n] [num (* n denom)])
+#(def freq+ [[n1 d1] [n2 d2]]
+#  (let [d (math/lcm d1 d2)]
+#    [(+ (* n1 (/ d1 d)) (* n2 (/ d2 d))) d]))
+#
+#(defn handle-freq [from mod freq]
+#  (defn output [freq] (seq [out :in (mod :outs)] [out freq]))
+#  (cond
+#    (nil? (mod :type)) (output freq)
+#    (= (in-mod :type) :%) (output
+#                            @{:low (freq/n (freq :low) 2)
+#                              :high (freq/n (freq :low) 2)
+#                              :none (freq+ (freq :high) (freq :none)))
+#    (= (in-mod :type) :&)
+#    (do
+#      (put-in in-mod [:in-freq from] freq)
+#      (if (all identity (in in-mod :in-freqs))
+#        (output @{:none 0
+#                  :low (product (in in-mod :in-freqs)))
+#        ))
+#    []))
+#
+#(defn part2 [str]
+#  (def mac (mac/new str))
+#  (def q @[[:but {:low [1 1] :high [0 0] :none [0 0]} :bcast]])
+#  (label
+#    result
+#    (while (not (empty? q))
+#      (def [from in-freq to] (array/pop q))
+#      (each [out out-freq] (handle-freq from (mac to) in-freq)
+#        (if (not (mac out))
+#          (return result out-freq))
+#        (array/push q [to out-freq out]))
+#      )))
+
+(defn print-ins [ins]
+  (each s (values ins)
+    (case s :low (prin "0") (prin "1")))
+  (print))
+
 (defn part2 [str]
   (def mac (mac/new str))
-  (var presses 0)
-  (forever
-    (++ presses)
-    (if (some |(= $ :low) ((from-pairs (mac/push mac)) :rx))
-      (break)))
-  presses)
+  (for i 0 100
+    (mac/push mac)
+    (print-ins ((mac :fb) :ins))
+  )
+  )
 
-#(judge/test (part2 real-input) 806332748) 
+(judge/test-stdout (part2 real-input) `
+  001000000
+  000000000
+  001000000
+  000000000
+  001000000
+  000000000
+  001000000
+  000100000
+  001100000
+  000100000
+  001100000
+  000100000
+  001100000
+  000100000
+  001100000
+  000010000
+  001010000
+  000010000
+  001010000
+  000010000
+  001010000
+  000010000
+  001010000
+  000110000
+  001110000
+  000110000
+  001110000
+  000110000
+  001110000
+  000110000
+  001110000
+  000000000
+  001000000
+  000000000
+  001000000
+  000000000
+  001000000
+  000000000
+  001000000
+  000100000
+  001100000
+  000100000
+  001100000
+  000100000
+  001100000
+  000100000
+  001100000
+  000010000
+  001010000
+  000010000
+  001010000
+  000010000
+  001010000
+  000010000
+  001010000
+  000110000
+  001110000
+  000110000
+  001110000
+  000110000
+  001110000
+  000110000
+  001110000
+  000000010
+  001000010
+  000000010
+  001000010
+  000000010
+  001000010
+  000000010
+  001000010
+  000100010
+  001100010
+  000100010
+  001100010
+  000100010
+  001100010
+  000100010
+  001100010
+  000010010
+  001010010
+  000010010
+  001010010
+  000010010
+  001010010
+  000010010
+  001010010
+  000110010
+  001110010
+  000110010
+  001110010
+  000110010
+  001110010
+  000110010
+  001110010
+  000000010
+  001000010
+  000000010
+  001000010
+  000000010
+`) 

@@ -54,6 +54,9 @@
       (def open-set (string/from-bytes ;open-slopes (chr ".")))
       (string/check-set open-set (string/from-bytes v)))
 
+    (defn open2? [v dir]
+      (string/check-set "<>^v." (string/from-bytes v)))
+
     (set open-dirs
          (seq [dir :in dirs4
                :let [p (vec+ pos dir)
@@ -61,7 +64,7 @@
                :when (and
                        (not (nil? c))
                        (not= backwards dir)
-                       (open? c dir))]
+                       (open2? c dir))]
            dir))
 
     (if (= 1 (length open-dirs))
@@ -72,35 +75,7 @@
 
 (judge/test (advance test-grid [1 0] dir-S) [[3 5] @[[1 0] [0 1]] 15])
 (judge/test (advance test-grid [19 19] dir-S) [[21 22] @[] 5])
-(judge/test (advance test-grid [11 3] dir-S) [[13 13] @[[1 0] [0 1]] 24])
-
-(defn map-grid [grid pos dir]
-  (def graph @{})
-
-  (defn map-grid-rec [pos dir]
-    (printf "visiting position %n" pos)
-    (def [next-pos open-dirs dist] (advance grid pos dir))
-    (put-in graph [pos next-pos] dist)
-    (unless (in graph next-pos)
-      (each dir open-dirs
-        (map-grid-rec next-pos dir))))
-
-  (map-grid-rec pos dir)
-  graph)
-
-(judge/trust
-  (map-grid test-grid [1 0] [0 1])
-  @{[1 0] @{[3 5] 15}
-    [3 5] @{[5 13] 22 [11 3] 22}
-    [5 13] @{[11 3] 44 [13 19] 38}
-    [11 3] @{[13 13] 24 [21 11] 30}
-    [13 13] @{[5 13] 12 [21 11] 18}
-    [13 19] @{[13 13] 10 [19 19] 10}
-    [19 19] @{[13 13] 20 [21 22] 5}
-    [21 11] @{[13 13] 18 [19 19] 10}})
-
-(defn max-or-nil [arr]
-  (if (empty? arr) nil (max ;arr)))
+(judge/test (advance test-grid [11 3] dir-S) [[13 13] @[[1 0] [0 1] [-1 0]] 24])
 
 (defn longest-hike [grid start-pos start-dir dest]
   (def visited @{})
@@ -133,7 +108,11 @@
       [(- w 2) (- h 1)]))
   (longest-hike grid start-pos start-dir dest))
 
-(judge/test (part1 test-input) 94)
+# Part1
+# (judge/test (part1 test-input) 94)
+# Part2
+(judge/test (part1 test-input) 154)
 
 # Runs in 2.5s
 # (judge/test (part1 real-input) 2086)
+(judge/test (part1 real-input) 2086)
