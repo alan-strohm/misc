@@ -1,5 +1,19 @@
 (import judge)
 
+(defmacro fold-loop [init f dsl & body]
+  (with-syms [$result $init $f]
+    ~(let [,$init ,init ,$f ,f]
+       (var ,$result ,$init)
+       (loop ,dsl
+         (set ,$result (,$f ,$result (do ,;body))))
+       ,$result)))
+
+(defmacro sum-loop [dsl & body]
+  ~(as-macro ,fold-loop 0 + ,dsl ,;body))
+
+(judge/test (fold-loop 0 + [v :in [1 2 3]] v) 6)
+(judge/test (sum-loop [v :in [1 2 3]] v) 6)
+
 (defn sep [pat delim]
   ~(* ,pat (any (* ,delim ,pat)) (any ,delim)))
 
