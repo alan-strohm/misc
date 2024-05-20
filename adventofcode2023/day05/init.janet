@@ -1,111 +1,97 @@
 (import judge)
 
-(def peg
-  (peg/compile
-    '{:seeds (* "seeds: " (some (+ :s+ (number :d+))))
-      :range (repeat 3 (* (number :d+) :s+))
-      :map (* ':w+ "-to-" ':w+ " map:\n" (some (group :range)))
-      :main (* (group :seeds) (some (group :map)))}))
+(def test-input (slurp "./day05/example.txt"))
+(def real-input (slurp "./day05/input.txt"))
 
-(defn map-id [id ranges]
-  (label result
-    (each [dst src len] ranges
-      (let [delta (- id src)]
-        (if (and (>= delta 0) (< delta len)) (return result (+ dst delta)))))
-    (return result id)))
+(def peg '{:main (* (group :seeds) (some (group :map)))
+           :seeds (* "seeds: " (some (+ :s+ (number :d+))))
+           :map (* :w+ "-to-" :w+ " map:\n" (some (group :range)))
+           :range (repeat 3 (* (number :d+) :s+))
+           })
 
-(defn load [file]
-  (def parsed (peg/match peg (slurp file)))
-  (defn acc-deps [deps [from to & mappings]]
-    (put deps from
-         @{:to to
-           :mappings mappings}))
-  @{:seeds (get parsed 0)
-    :deps (reduce acc-deps @{} (array/slice parsed 1))})
+(judge/test (peg/match peg test-input)
+  @[@[79 14 55 13]
+    @[@[50 98 2] @[52 50 48]]
+    @[@[0 15 37] @[37 52 2] @[39 0 15]]
+    @[@[49 53 8]
+      @[0 11 42]
+      @[42 0 7]
+      @[57 7 4]]
+    @[@[88 18 7] @[18 25 70]]
+    @[@[45 77 23] @[81 45 19] @[68 64 13]]
+    @[@[0 69 1] @[1 0 69]]
+    @[@[60 56 37] @[56 93 4]]])
 
-(defn get-dst [deps src src-type dst-type]
-  (if (= src-type dst-type) src
-    (let [next-type (get-in deps [src-type :to])
-          next-v (map-id src (get-in deps [src-type :mappings]))]
-      (get-dst deps next-v next-type dst-type))))
+(defn intersect
+  "Return the intersection of left and right"
+  [[left-begin left-end] [right-begin right-end]]
+  (if (or (<= left-end right-begin) (<= right-end left-begin))
+    nil
+    [(max left-begin right-begin) (min left-end right-end)]))
 
-(defn day1 [file]
-  (def almanac (load file))
-  (min ;(map |(get-dst (almanac :deps) $ "seed" "location") (almanac :seeds))))
+(judge/test (intersect [0 1] [1 2]) nil)
+(judge/test (intersect [0 3] [1 2]) [1 2])
+(judge/test (intersect [1 2] [0 3]) [1 2])
+(judge/test (intersect [0 2] [1 3]) [1 2])
+(judge/test (intersect [1 3] [0 2]) [1 2])
 
-(judge/test (day1 "./day05/example.txt") 35)
-(judge/test (day1 "./day05/input.txt") 462648396)
+(defn split 
+  "Return the portion of left before, intersecting and after right"
+  [[left-begin left-end] [right-begin right-end]]
+  [(if (< left-begin right-begin)
+     [left-begin (min left-end right-begin)]
+     nil)
+   (intersect [left-begin left-end] [right-begin right-end])
+   (if (> left-end right-end)
+     [(max left-begin right-end) left-end]
+     nil)
+   ])
 
-(defn map-intersection [[start end] [dst src len]]
-  (let [start-delta (- start src)
-        end-delta (min (- end src) len)
-        new-start (if (< start src) dst (+ dst start-delta))]
-    (if (or (>= start-delta len) (<= end-delta 0))
-      []
-      [new-start (+ dst end-delta)])))
+(judge/test (split [0 4] [1 2]) [[0 1] [1 2] [2 4]])
+(judge/test (split [0 2] [1 2]) [[0 1] [1 2] nil])
+(judge/test (split [0 2] [2 3]) [[0 2] nil nil])
+(judge/test (split [2 3] [0 2]) [nil nil [2 3]])
+(judge/test (split [1 3] [0 2]) [nil [1 2] [2 3]])
 
-(judge/test (map-intersection [2 4] [2 5 1]) [])
-(judge/test (map-intersection [2 4] [12 1 1]) [])
-(judge/test (map-intersection [2 4] [12 4 1]) [])
-(judge/test (map-intersection [2 4] [12 3 1]) [12 13])
-(judge/test (map-intersection [2 5] [12 3 1]) [12 13])
-(judge/test (map-intersection [2 4] [12 1 2]) [13 14])
-(judge/test (map-intersection [2 4] [12 1 3]) [13 15])
-(judge/test (map-intersection [2 4] [12 2 1]) [12 13])
+(defn convert
+  "Convert src-ranges to corresponding destination ranges using rules"
+  [src-ranges rules]
+  (var current src-ranges)
+  (def dst-ranges @[])
+  (loop [[dst src len] :in rules
+         :let [next @[]
+               offset (- dst src)]
+         :after (set current next)
+         src-range :in current]
+    (def [before inter after] (split src-range [src (+ src len)]))
+    (match inter
+      [b e] (array/push dst-ranges [(+ b offset) (+ e offset)]))
+    (array/push next ;(filter truthy? [before after])))
+  (array/concat dst-ranges current))
 
-(defn subtract [[start end] [_ src len]]
-  (def result @[])
-  (let [src-end (+ src len)]
-    (if (< start src) (array/push result [start (min end src)]))
-    (if (> end src-end) (array/push result [(max start src-end) end])))
-  result)
+(judge/test (convert [[79 80] [14 15] [55 56] [13 14]] [[50 98 2] [52 50 48]]) @[[81 82] [57 58] [14 15] [13 14]])
+(judge/test (convert [[79 93] [55 68]] [[50 98 2] [52 50 48]]) @[[81 95] [57 70]])
+(judge/test (convert [[97 99]] [[50 98 2] [52 50 48]]) @[[50 51] [99 100]])
 
-(judge/test (subtract [2 4] [0 5 1]) @[[2 4]])
-(judge/test (subtract [2 4] [0 1 1]) @[[2 4]])
-(judge/test (subtract [2 4] [0 1 2]) @[[3 4]])
-(judge/test (subtract [2 4] [0 3 1]) @[[2 3]])
-(judge/test (subtract [2 5] [0 3 1]) @[[2 3] [4 5]])
-(judge/test (subtract [2 4] [0 1 3]) @[])
-(judge/test (subtract [2 4] [0 2 2]) @[])
-(judge/test (subtract [2 4] [0 2 3]) @[])
+(defn solve
+  "Find the lowest destination corresponding to one of init."
+  [src [next & rest]]
+  (def dst (convert src next))
+  (if (empty? rest)
+    (min-of (map first dst))
+    (solve dst rest)))
 
-(defn get-dst-ranges [deps src-ranges src-type dst-type]
-  (if (= src-type dst-type) src-ranges
-    (let [next-type (get-in deps [src-type :to])
-          mappings (get-in deps [src-type :mappings])]
-      (print (string/format "finding mappings for %d ranges from %s to %s" (length src-ranges) src-type next-type))
-      (def dst-ranges @[])
-      (loop [:before (var found-mapping false)
-             src-range :in src-ranges
-             :before (set found-mapping false)
-             :after (if-not found-mapping (array/push dst-ranges src-range))
-             mapping :in mappings]
-        (def dst-range (map-intersection src-range mapping))
-        #(print (string/format " got dst-range %n from src-range %n and mapping %n" dst-range src-range mapping))
-        (if (not= [] dst-range)
-          (do
-            (set found-mapping true)
-            (array/push dst-ranges dst-range)
-            (each new-src (subtract src-range mapping)
-              #(print (string/format " got remaining src-range %n from src-range %n and mapping %n" new-src src-range mapping))
-              (array/push src-ranges new-src)))))
-      (get-dst-ranges deps dst-ranges next-type dst-type))))
+(defn part1 [str]
+  (def [seeds & mappings] (peg/match peg str))
+  (solve (seq [s :in seeds] [s (inc s)]) mappings))
 
-(defn make-ranges [list]
-  (def result @[])
-  (loop [x :range [0 (length list)] :when (even? x)]
-    (let [start (get list x)
-          end (+ start (get list (+ x 1)))]
-      (array/push result [start end])))
-  result)
+(judge/test (part1 test-input) 35)
+(judge/test (part1 real-input) 462648396)
 
-(judge/test (make-ranges [1 2 3 4]) @[[1 3] [3 7]])
+(defn part2 [str]
+  (def [seeds & mappings] (peg/match peg str))
+  (def ranges (seq [[b l] :in (partition 2 seeds)] [b (+ b l)]))
+  (solve ranges mappings))
 
-(defn day2 [file]
-  (let [almanac (load file)
-        seed-ranges (make-ranges (almanac :seeds))
-        deps (almanac :deps)]
-    (min ;(map first (get-dst-ranges deps seed-ranges "seed" "location")))))
-
-(judge/test (day2 "./day05/example.txt") 46)
-(judge/test (day2 "./day05/input.txt") 2520479)
+(judge/test (part2 test-input) 46)
+(judge/test (part2 real-input) 2520479)
