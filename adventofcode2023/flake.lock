@@ -18,23 +18,47 @@
         "type": "github"
       }
     },
+    "janet2nix": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1712219612,
+        "narHash": "sha256-Zi2JM/mwuWTv+m/X8hr4QWSWZn2903T3RGGJAuKLm9Y=",
+        "ref": "refs/heads/main",
+        "rev": "fde4e49319bcdd7b502e96333572934f8738ec00",
+        "revCount": 18,
+        "type": "git",
+        "url": "ssh://git@github.com/alan-strohm/janet2nix"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/alan-strohm/janet2nix"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1700851152,
-        "narHash": "sha256-3PWITNJZyA3jz5IGREJRfSykM6xSLmD8u5A3WpBCyDM=",
-        "rev": "1216a5ba22a93a4a3a3bfdb4bff0f4727c576fcc",
-        "revCount": 492333,
+        "lastModified": 1715787315,
+        "narHash": "sha256-cYApT0NXJfqBkKcci7D9Kr4CBYZKOQKDYA23q8XNuWg=",
+        "rev": "33d1e753c82ffc557b4a585c77de43d4c922ebb5",
+        "revCount": 626834,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2305.492333%2Brev-1216a5ba22a93a4a3a3bfdb4bff0f4727c576fcc/018c062f-228c-717f-a68e-3d68efbfa794/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.1.626834%2Brev-33d1e753c82ffc557b4a585c77de43d4c922ebb5/018f8037-433d-77f3-b4bb-e542e48f7fd6/source.tar.gz"
       },
       "original": {
         "type": "tarball",
-        "url": "https://flakehub.com/f/NixOS/nixpkgs/0.2305.tar.gz"
+        "url": "https://flakehub.com/f/NixOS/nixpkgs/0.1.0.tar.gz"
       }
     },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "janet2nix": "janet2nix",
         "nixpkgs": "nixpkgs"
       }
     },
