@@ -1,26 +1,7 @@
 (import judge)
 
-(def example ``
-Time:      7  15   30
-Distance:  9  40  200
-  ``)
-
-(def input ``
-Time:        35     69     68     87
-Distance:   213   1168   1086   1248
-  ``)
-
-(def peg
-  (peg/compile '{:numbers (some (+ :s+ (number :d+)))
-                 :time (* "Time:" :numbers)
-                 :distance (* "Distance:" :numbers)
-                 :main (* (group :time) (group :distance))}))
-
-(judge/test (peg/match peg example) @[@[7 15 30] @[9 40 200]])
-
-(defn get-dist [hold total]
-  (let [left (- total hold)
-        velocity hold]
+(defn get-dist [velocity total]
+  (let [left (- total velocity)]
     (* velocity left)))
 
 (judge/test (get-dist 1 7) 6)
@@ -28,18 +9,20 @@ Distance:   213   1168   1086   1248
 
 (defn num-winning [time record]
   (var result 0)
-  (loop [hold :range [1 time]]
-    (let [dist (get-dist hold time)]
-      (if (> dist record) (++ result))))
+  (loop [hold :range [1 time]
+         :let [dist (get-dist hold time)]
+         :when (> dist record)]
+    (++ result))
   result)
 
 (judge/test (num-winning 7 9) 4)
 
-(defn day1 [input]
-  (product (map num-winning ;(peg/match peg input))))
+(defn part1 [input] (product (map num-winning ;input)))
 
-(judge/test (day1 example) 288)
-(judge/test (day1 input) 170000)
+(judge/test (part1 [[7 15 30] [9 40 200]]) 288)
+(judge/test (part1 [[35 69 68 87] [213 1168 1086 1248]]) 170000)
 
-(judge/test (num-winning 71530 940200) 71503)
-(judge/test (num-winning 35696887 213116810861248) 20537782)
+(def part2 num-winning)
+
+(judge/test (part2 71530 940200) 71503)
+(judge/test (part2 35696887 213116810861248) 20537782)
