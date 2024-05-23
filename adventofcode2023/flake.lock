@@ -28,11 +28,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1712219612,
-        "narHash": "sha256-Zi2JM/mwuWTv+m/X8hr4QWSWZn2903T3RGGJAuKLm9Y=",
+        "lastModified": 1716480308,
+        "narHash": "sha256-fTyzI09PEiHfQ9a/PUu9ofywYvsSZOuorT3lI1ZCNB0=",
         "ref": "refs/heads/main",
-        "rev": "fde4e49319bcdd7b502e96333572934f8738ec00",
-        "revCount": 18,
+        "rev": "9bee87b3fcde94121575f7547431baf66720088e",
+        "revCount": 19,
         "type": "git",
         "url": "ssh://git@github.com/alan-strohm/janet2nix"
       },
