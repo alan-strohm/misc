@@ -33,11 +33,6 @@ Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
     @[@[31 18 13 56 72]
       @[74 77 10 23 35 67 36 11]]])
 
-(defn make-set [a]
-  (reduce |(put $0 $1 true) @{} a))
-
-(judge/test (make-set [1 2 3 4]) @{1 true 2 true 3 true 4 true})
-
 (defn num-winning [winning have]
   (length (filter (make-set winning) have)))
 

@@ -14,6 +14,11 @@
 (judge/test (fold-loop 0 + [v :in [1 2 3]] v) 6)
 (judge/test (sum-loop [v :in [1 2 3]] v) 6)
 
+(defn make-set [a]
+  (reduce |(put $0 $1 true) @{} a))
+
+(judge/test (make-set [1 2 3 4]) @{1 true 2 true 3 true 4 true})
+
 (defn sep [pat delim]
   ~(* ,pat (any (* ,delim ,pat)) (any ,delim)))
 
