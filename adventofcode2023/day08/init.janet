@@ -1,16 +1,6 @@
 (import judge)
 
-(defn make-map [entries]
-  (reduce |(put $0 (get $1 0) (array/slice $1 1)) @{} entries))
-
-(def peg
-  (peg/compile
-    ~{:instructions (group (some (/ '(+ "L" "R") {"L" 0 "R" 1})))
-      :map-entry (group (* ':w+ " = (" ':w+ ", " ':w+ ")\n"))
-      :main (* :instructions :s+ (/ (group (some :map-entry )) ,make-map))}
-      ))
-
-(def example1 `
+(def test-input1 `
 LLR
 
 AAA = (BBB, BBB)
@@ -18,29 +8,7 @@ BBB = (AAA, ZZZ)
 ZZZ = (ZZZ, ZZZ
 `)
 
-(judge/test (peg/match peg example1)
-  @[@[0 0 1]
-    @{"AAA" @["BBB" "BBB"]
-      "BBB" @["AAA" "ZZZ"]}])
-
-(defn run [[insts network]]
-  (var steps 0)
-  (var node "AAA")
-  (var idx 0)
-  (while (not= node "ZZZ")
-    (set node (get-in network [node (get insts idx)]))
-    (set idx (% (+ 1 idx) (length insts)))
-    (++ steps))
-  steps)
-
-(judge/test (run (peg/match peg example1)) 6)
-
-(defn part1 [file]
-  (run (peg/match peg (slurp file))))
-
-(judge/test (part1 "./day08/input.txt") 18727)
-
-(def example2 `
+(def test-input2 `
 LR
 
 11A = (11B, XXX)
@@ -53,47 +21,42 @@ LR
 XXX = (XXX, XXX)
 `)
 
+(def real-input (slurp "./day08/input.txt"))
+
+(def peg ~{:main (* :instructions :s+ (/ (some :map-entry) ,table))
+           :instructions (group (some (+ (/ "L" 0) (/ "R" 1))))
+           :map-entry (* ':w+ " = (" (group (* ':w+ ", " ':w+)) ")\n")})
+
+(judge/test (peg/match peg test-input1)
+  @[@[0 0 1]
+    @{"AAA" @["BBB" "BBB"]
+      "BBB" @["AAA" "ZZZ"]}])
+
+(defn count-steps [start done? instructions network]
+  (var steps 0)
+  (var node start)
+  (while (not (done? node))
+    (def next-dir (in instructions (% steps (length instructions))))
+    (set node (get-in network [node next-dir]))
+    (++ steps))
+  steps)
+
+(defn part1 [str] (count-steps "AAA" |(= "ZZZ" $) ;(peg/match peg str)))
+
+(judge/test (part1 test-input1) 6)
+(judge/test (part1 real-input) 18727)
+
 (defn find-starts [network]
   (filter |(string/has-suffix? "A" $) (keys network)))
 
-(judge/test (find-starts (get (peg/match peg example2) 1)) @["11A" "22A"])
+(judge/test (find-starts (last (peg/match peg test-input2))) @["11A" "22A"])
 
-(defn run2 [[insts network]]
-  (var steps 0)
-  (var nodes (find-starts network))
-  (var inst-i 0)
-  (defn next-step []
-    (if (= (% steps 1000000) 0) (print (string/format "on step %d" steps)))
-    (set inst-i (% (+ 1 inst-i) (length insts)))
-    (++ steps))
-  (loop [done :iterate (not (all |(string/has-suffix? "Z" $) nodes))
-         :after (next-step)
-         node-i :range [0 (length nodes)]]
-    (put nodes node-i (get-in network [(get nodes node-i) (get insts inst-i)]))
-    )
-  steps)
+(defn part2 [str]
+  (def [instructions network] (peg/match peg str))
+  (def done? |(string/has-suffix? "Z" $))
+  (->> (find-starts network)
+       (map |(count-steps $ done? instructions network))
+       (reduce2 |(math/lcm $0 $1))))
 
-(defn run2 [[insts network]]
-  (var nodes (find-starts network))
-  (var steps-per-node @[])
-  (var inst-i 0)
-  (var steps 0)
-  (defn next-node [node-i]
-    (put steps-per-node node-i steps)
-    (set inst-i 0)
-    (set steps 0))
-  (loop [node-i :range [0 (length nodes)]
-         :after (next-node node-i)
-         done :iterate (not (string/has-suffix? "Z" (get nodes node-i)))]
-    (put nodes node-i (get-in network [(get nodes node-i) (get insts inst-i)]))
-    (set inst-i (% (+ 1 inst-i) (length insts)))
-    (++ steps))
-  (reduce2 |(math/lcm $0 $1) steps-per-node))
-
-
-(judge/test (run2 (peg/match peg example2)) 6)
-
-(defn part2 [file]
-  (run2 (peg/match peg (slurp file))))
-
-(judge/test (part2 "./day08/input.txt") 18024643846273)
+(judge/test (part2 test-input2) 6)
+(judge/test (part2 real-input) 18024643846273)
