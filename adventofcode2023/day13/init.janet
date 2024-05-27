@@ -1,6 +1,7 @@
 (import judge)
+(use ../util)
 
-(def example `
+(def test-input `
 #.##..##.
 ..#.##.#.
 ##......#
@@ -17,54 +18,56 @@
 ..##..###
 #....#..#`)
 
-(defn mirror [len m x]
-  (let [r (+ m (- m x 1))]
-    (if (or (>= x m) (>= r len)) nil r)))
+(def real-input (slurp "./day13/input.txt"))
 
-(judge/test (mirror 2 1 0) 1)
-(judge/test (mirror 3 2 0) nil)
-(judge/test (mirror 4 2 0) 3)
+(defn mirror-idx
+  "Find the mirror of x around a midpoint mid."
+  [x mid len]
+  (def result (+ mid (- mid x 1)))
+  (if (and (< x mid) (< result len))
+    result))
 
-(defn rotate [arr]
-  (map string/from-bytes ;arr))
+(judge/test (mirror-idx 0 1 2) 1)
+(judge/test (mirror-idx 0 2 3) nil)
+(judge/test (mirror-idx 0 2 4) 3)
 
-(judge/test (rotate ["abc" "def"]) @["ad" "be" "cf"])
-(judge/test (rotate ["ad" "be" "cf"]) @["abc" "def"])
+(defn transpose [strings] (map string/from-bytes ;strings))
 
-(defn mirror-errs-1d [lines]
-  (def errs (array/new-filled (length (0 lines)) 0))
+(judge/test (transpose ["abc" "def"]) @["ad" "be" "cf"])
+(judge/test (transpose ["ad" "be" "cf"]) @["abc" "def"])
+
+(defn load [str]
+  (->> str string/trim (string/split "\n\n") (map |(string/split "\n" $))))
+
+(defn mirror-errs-1d
+  `Return an array where the value at index i is the number of errors it would take
+  to make i a valid mirror point`
+  [lines]
+  (def errs (seq [:repeat (length (first lines))] 0))
   (put errs 0 math/int-max)
   (loop [line :in lines
          [x char] :pairs line
-         m :range [0 (length errs)]
-         :let [mirror-x (mirror (length line) m x)]]
+         m :range [1 (length errs)]
+         :let [mirror-x (mirror-idx x m (length line))]]
     (if (and mirror-x (not= char (mirror-x line)))
       (update errs m inc)))
   errs)
 
-(defn deb [x] (pp x) x)
-
-(defn load [str]
-  (->> str (string/trim) (string/split "\n\n") (map |(string/split "\n" $))))
-
-(defn run [str num-errs]
-  (var total 0)
-  (def inputs (load str))
+(defn solve [str num-errs]
   (defn find-mirror-1d [input]
     (find-index |(= num-errs $) (mirror-errs-1d input)))
-  (loop [input :in inputs
-         :let [vm (find-mirror-1d input)]]
-    (if vm
-      (+= total vm)
-      (+= total (* 100 (find-mirror-1d (rotate input))))))
-  total)
 
-(defn part1 [str] (run str 0))
+  (sum-loop [input :in (load str)
+             :let [vertical-mirror (find-mirror-1d input)]]
+    (or vertical-mirror
+        (* 100 (find-mirror-1d (transpose input))))))
 
-(judge/test (part1 example) 405)
-(judge/test (part1 (slurp "./day13/input.txt")) 31265)
+(defn part1 [str] (solve str 0))
 
-(defn part2 [str] (run str 1))
+(judge/test (part1 test-input) 405)
+(judge/test (part1 real-input) 31265)
 
-(judge/test (part2 example) 400)
-(judge/test (part2 (slurp "./day13/input.txt")) 39359)
+(defn part2 [str] (solve str 1))
+
+(judge/test (part2 test-input) 400)
+(judge/test (part2 real-input) 39359)

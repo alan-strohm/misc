@@ -1,4 +1,5 @@
 (import judge)
+(use ../util)
 
 (def test-input `
 O....#....
@@ -22,7 +23,7 @@ O.#..O.#.#
    (chr "O") :O})
 
 (defn load [str]
-  (->> str (string/trim) (string/split "\n") (map |(map types $))))
+  (->> str string/trim (string/split "\n") (map |(map types $))))
 
 (judge/test (load test-input)
   @[@[:O :. :. :. :. :$ :. :. :. :.]
@@ -69,18 +70,13 @@ O.#..O.#.#
     @[:$ :. :. :O :O :$ :. :. :. :.]])
 
 (defn calc-load [key len]
-  (var result 0)
-  (loop [[_ y] :in key
-         :let [load (- len y)]]
-    (+= result load))
-  result)
+  (sum-loop [[_ y] :in key] (- len y)))
 
 (defn key [grid]
-  (var result @[])
-  (loop [[y line] :pairs grid
-         [x char] :pairs line :when (= :O char)]
-    (array/push result [x y]))
-  (tuple ;result))
+  (tuple ;(seq [[y line] :pairs grid
+                [x char] :pairs line
+                :when (= :O char)]
+            [x y])))
 
 (defn part1 [str]
   (def grid (-> str (load) (tilt N)))
@@ -124,7 +120,7 @@ O.#..O.#.#
     (++ cnt))
 
   (def loop-len (- cnt loop-start))
-  (def target-cnt (-> 1000000000 (- 1) (- loop-start) (% loop-len) (+ loop-start)))
+  (def target-cnt (-> 1000000000 dec (- loop-start) (% loop-len) (+ loop-start)))
   (calc-load
     (find-index (partial = target-cnt) seen)
     (length grid)))
