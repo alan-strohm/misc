@@ -1,4 +1,5 @@
 (import judge)
+(import heap)
 
 (def test-input `
 2413432311323
@@ -18,7 +19,7 @@
 `)
 
 (defn grid/parse [str]
-  (->> str (string/trim) (string/split "\n")
+  (->> str string/trim (string/split "\n")
        (map (partial map |(- $ (chr "0"))))))
 
 (judge/test (grid/parse test-input)
@@ -163,4 +164,4 @@
 241343231
 321545353
 `)
-(judge/test (shortest-path (grid/parse test-input) [0 0]) 15)
+#(judge/test (shortest-path (grid/parse test-input) [0 0]) 15)

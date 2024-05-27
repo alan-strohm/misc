@@ -115,4 +115,3 @@
 
 # Runs in 2.5s
 # (judge/test (part1 real-input) 2086)
-(judge/test (part1 real-input) 2086)

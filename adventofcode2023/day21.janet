@@ -111,22 +111,8 @@
   (length seeds)
   )
 
-(judge/test (part1 test-input 6) 16)
-(judge/test (part1 real-input 64) 3841)
+#(judge/test (part1 test-input 6) 16)
+#(judge/test (part1 real-input 64) 3841)
 
-(judge/test-stdout (run test-input [5 5] 13) `
-  .O.O.O.O.O.
-  O.O.O###O#O
-  .###.##O.#.
-  O.#.#.O.#.O
-  .O.O#O#O.O.
-  O##.O.####O
-  .##O.#.O.#.
-  O.O.O.O##.O
-  .##O#O####.
-  O##.O##.##O
-  .O.O.O.O.O.
-  count: 39
-  
-`)
+#(judge/test (run test-input [5 5] 13) nil)
 

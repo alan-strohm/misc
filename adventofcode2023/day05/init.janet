@@ -67,19 +67,18 @@
     (match inter
       [b e] (array/push dst-ranges [(+ b offset) (+ e offset)]))
     (array/push next ;(filter truthy? [before after])))
-  (array/concat dst-ranges current))
+  [;dst-ranges ;current])
 
-(judge/test (convert [[79 80] [14 15] [55 56] [13 14]] [[50 98 2] [52 50 48]]) @[[81 82] [57 58] [14 15] [13 14]])
-(judge/test (convert [[79 93] [55 68]] [[50 98 2] [52 50 48]]) @[[81 95] [57 70]])
-(judge/test (convert [[97 99]] [[50 98 2] [52 50 48]]) @[[50 51] [99 100]])
+(judge/test (convert [[79 80] [14 15] [55 56] [13 14]] [[50 98 2] [52 50 48]]) [[81 82] [57 58] [14 15] [13 14]])
+(judge/test (convert [[79 93] [55 68]] [[50 98 2] [52 50 48]]) [[81 95] [57 70]])
+(judge/test (convert [[97 99]] [[50 98 2] [52 50 48]]) [[50 51] [99 100]])
 
 (defn solve
   "Find the lowest destination corresponding to one of init."
-  [src [next & rest]]
-  (def dst (convert src next))
-  (if (empty? rest)
-    (min-of (map first dst))
-    (solve dst rest)))
+  [src maps]
+  (->> (reduce convert src maps)
+       (map first)
+       min-of))
 
 (defn part1 [str]
   (def [seeds & mappings] (peg/match peg str))

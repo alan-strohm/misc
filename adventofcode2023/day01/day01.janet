@@ -9,7 +9,7 @@ a1b2c3d4e5f
 treb7uchet
 `)
 
-(def real-input (string/trim (slurp "./input.txt")))
+(def real-input (string/trim (slurp "./day01/input.txt")))
 
 (def peg1
   '{:main (split "\n" (group :line))
