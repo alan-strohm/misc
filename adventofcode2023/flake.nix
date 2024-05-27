@@ -7,6 +7,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     janet2nix = {
       url = "git+ssh://git@github.com/alan-strohm/janet2nix";
+      #url = "git+file:///home/astrohm/src/github.com/alan-strohm/janet2nix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
@@ -18,9 +19,15 @@
       inherit system;
       overlays = inputs.janet2nix.overlays.${system};
     };
+    heap = pkgs.mkJanetPackage {
+      name = "heap";
+      url = "https://github.com/ianthehenry/heap.git";
+      rev = "ff5e69ded337c0ecd0f16492ec987dc8e120d295";
+      withJanetPackages = with pkgs.janetPackages; [ judge ];
+    };
     myEnv = pkgs.mkJanetTree {
       name = "adventofcode2023";
-      withJanetPackages = with pkgs.janetPackages; [ judge ];
+      withJanetPackages = with pkgs.janetPackages; [ heap judge spork ];
     };
   in rec {
     devShells.default = pkgs.mkShell {
