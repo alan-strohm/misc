@@ -1,6 +1,7 @@
 (import judge)
+(use ../util)
 
-(def example `
+(def test-input `
 ...#......
 .......#..
 #.........
@@ -12,38 +13,34 @@
 .......#..
 #...#.....
 `)
+(def real-input (slurp "./day11/input.txt"))
 
-(defn find-galaxies [lines]
-  (var galaxies @[])
-  (loop [y :range [0 (length lines)]
-         :let [line (get lines y)]
-         x :range [0 (length line)]
-         :let [v (get line x)]]
-    (if (= v (chr "#"))
-      (array/push galaxies [x y])))
-  galaxies)
+(defn find-galaxies [grid]
+  (seq [[p v] :in (grid/pairs grid)
+        :when (= v "#")]
+    p))
 
-(defn expand [by lines]
-  (def has-galaxy
-    [(array/new-filled (length (get lines 0)) false)
-     (array/new-filled (length lines) false)])
+(defn expand [by grid]
+  (def galaxies (find-galaxies grid))
 
-  (def galaxies (find-galaxies lines))
+  (def has-galaxy (let [[w h] (grid :dims)]
+                    [(array/new-filled w false)
+                     (array/new-filled h false)]))
 
   (loop [p :in galaxies
-         dim :range [0 2]]
-    (put-in has-galaxy [dim (get p dim)] true))
+         [dim i] :pairs p]
+    (put-in has-galaxy [dim i] true))
 
-  (def galaxy-mapping (zipcoll galaxies (map |(array ;$) galaxies)))
+  (def expanded (tabseq [g :in galaxies] g (array ;g)))
 
-  (loop [dim :range [0 2]
-         i :range [0 (length (get has-galaxy dim))]
-         :when (not (get-in has-galaxy [dim i]))
-         g :in galaxies :when (> (get g dim) i)]
-    (update-in galaxy-mapping [g dim] |(+ by $)))
-  (values galaxy-mapping))
+  (loop [[dim dim-has-galaxy] :pairs has-galaxy
+         [i i-has-galaxy] :pairs dim-has-galaxy
+         :unless i-has-galaxy
+         g :in galaxies :when (> (in g dim) i)]
+    (update-in expanded [g dim] |(+ by $)))
+  (values expanded))
 
-(judge/test (expand 1 (string/split "\n" example))
+(judge/test (expand 1 (grid/parse test-input))
   @[@[9 1]
     @[12 7]
     @[4 0]
@@ -55,23 +52,20 @@
     @[5 11]])
 
 (defn sum-distances [galaxies]
-  (var dist 0)
-  (loop [gi :range [0 (length galaxies)]
-         gj :range [(+ gi 1) (length galaxies)]
-         dim :range [0 2]
-         :let [g1dim (get-in galaxies [gi dim])
-               g2dim (get-in galaxies [gj dim])]]
-    (+= dist (math/abs (- g1dim g2dim))))
-  dist)
+  (sum-loop [[i g1] :pairs galaxies
+             g2 :in (array/slice galaxies (inc i))
+             [dim g1dim] :pairs g1
+             :let [g2dim (in g2 dim)]]
+            (math/abs (- g1dim g2dim))))
 
 (defn run [str by]
-  (->> str (string/trim) (string/split "\n") (expand by) (sum-distances)))
+  (->> str grid/parse (expand by) sum-distances))
 
-(judge/test (run example 1) 374)
-(judge/test (run (slurp "./day11/input.txt") 1) 9627977)
+(judge/test (run test-input 1) 374)
+(judge/test (run real-input 1) 9627977)
 
-(judge/test (run example 9) 1030)
-(judge/test (run example 99) 8410)
+(judge/test (run test-input 9) 1030)
+(judge/test (run test-input 99) 8410)
 
-(judge/test (run (slurp "./day11/input.txt") 999999) 644248339497)
+(judge/test (run real-input 999999) 644248339497)
 
