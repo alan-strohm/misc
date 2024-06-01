@@ -1,4 +1,5 @@
 (import judge)
+(use ../util)
 
 (def test-input `
 -L|F7
@@ -15,31 +16,18 @@ L|-JF
 
 (def pipes
   "Map pipe types to a map of input direction to output direction."
-  {(keyword "|") {N N S S} :- {E E W W}
-   :L {S E W N} :J {S W E N}
-   :7 {N W E S} :F {N E W S}
-   :. {} :S {}})
+  {"|" {N N S S} "-" {E E W W}
+   "L" {S E W N} "J" {S W E N}
+   "7" {N W E S} "F" {N E W S}
+   "." {} "S" {}})
 
-(defn make-grid
-  "Convert an input string into a 2D array of pipe types"
-  [input]
-  (defn make-entry [byte] (keyword (string/from-bytes byte)))
-  (->> (string/trim input)
-       (string/split "\n")
-       (map |(map make-entry $))))
-
-(def test-grid (make-grid test-input))
-
-(defn get-type [grid [x y]] (get-in grid [y x]))
-(defn set-type [grid [x y] t] (put-in grid [y x] t))
+(def test-grid (grid/parse test-input))
 
 (defn find-start
   "Find the start keyword in the result of make-grid."
   [grid]
-  (some (fn [[p type]] (if (= :S type) p))
-        (generate [[y line] :pairs grid
-                   [x type] :pairs line]
-          [[x y] type])))
+  (some (fn [[p type]] (if (= "S" type) p))
+        (grid/pairs grid)))
 
 (judge/test (find-start test-grid) [1 1])
 
@@ -49,7 +37,7 @@ L|-JF
   "Move in direction dir from point p. Result is the new point and new direction."
   [grid p dir]
   (if-let [p2 (p+ p dir)
-           type (get-type grid p2)
+           type (grid/get grid p2)
            new-dir ((pipes type) dir)]
     [p2 new-dir]))
 
@@ -66,7 +54,7 @@ L|-JF
   # Detect which type of pipe is at position s
   (def [d1 d2] (openings grid s))
   (def type (find-index |(and (index-of d1 $) (index-of d2 $)) pipes))
-  (set-type grid s type)
+  (grid/set grid s type)
 
   (def visited @{})
   (var state [s d1])
@@ -78,7 +66,7 @@ L|-JF
   visited)
 
 (defn part1 [str]
-  (let [grid (make-grid str)
+  (let [grid (grid/parse str)
         start (find-start grid)
         pipe-len (length (map-pipe grid start))]
     (/ pipe-len 2)))
@@ -87,22 +75,13 @@ L|-JF
 (judge/test (part1 real-input) 6867)
 
 (defn pipe-to-str [input]
-  "1. Find the start
-   2. Set the start to correct pipe type.
-   3. Map the pipe
-   4. Clear all cells not on the pipe.
-   5. Convert back to a string."
-  (let [grid (make-grid input)
-        start (find-start grid)]
-    (def in-pipe? (map-pipe grid start))
-    (var lines @[])
-    (loop [[y grid-line] :pairs grid
-           :before (var line (buffer/new (length grid-line)))
-           :after (array/push lines line)
-           [x type] :pairs grid-line
-           :let [p [x y]]]
-      (buffer/push line (if (in-pipe? p) type :.)))
-    (string/join lines "\n")))
+  (def grid (grid/parse input))
+  (def in-pipe? (map-pipe grid (find-start grid)))
+
+  (loop [[p _] :in (grid/pairs grid)
+         :unless (in-pipe? p)]
+    (grid/set grid p "."))
+  (grid/format grid))
 
 (judge/test (pipe-to-str test-input) ".....\n.F-7.\n.|.|.\n.L-J.\n.....")
 

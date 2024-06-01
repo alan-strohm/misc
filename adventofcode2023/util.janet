@@ -23,10 +23,10 @@
                     string/trim
                     (string/split "\n")
                     (map |(map string/from-bytes $))))
-  {:size [(length (first content)) (length content)]
+  {:dims [(length (first content)) (length content)]
    :content content})
 
-(defn grid/contains [{:size [max-x max-y]} [x y]]
+(defn grid/contains [{:dims [max-x max-y]} [x y]]
   (and
     (< x max-x)
     (>= x 0)
@@ -36,6 +36,30 @@
 (defn grid/get [{:content content} [x y]]
   (assert content "invalid grid: nil content")
   (get-in content [y x]))
+
+(defn- grid/check-oob [grid p]
+  (assert (grid/contains grid p)
+          (string/format "oob point: %n dims: %n" p (grid :dims))))
+
+(defn grid/set [grid p v]
+  (grid/check-oob grid p)
+  (assert (string? v) (string/format "invalid value: %n" v))
+  (let [{:content content} grid
+        [x y] p]
+    (put-in content [y x] v)))
+
+(judge/test-error (grid/set (grid/parse "1\n2") [1 1] "3") "oob point: (1 1) dims: (1 2)")
+(judge/test-error (grid/set (grid/parse "1") [0 0] 1) "invalid value: 1")
+
+(defn grid/pairs [{:content content}]
+  (assert content "invalid grid: nil content")
+  (generate [[y line] :pairs content
+             [x val] :pairs line]
+    [[x y] val]))
+
+(defn grid/format [{:content content}]
+  (assert content "invalid grid: nil content")
+  (string/join (map |(string/join $ "") content) "\n"))
 
 (defn vec+ [first & rest]
   (assert (all |(= (length $) (length first)) rest) "all args must be the same length")

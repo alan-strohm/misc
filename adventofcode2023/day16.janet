@@ -56,7 +56,7 @@
 
 (defn part2 [str]
   (def grid (grid/parse str))
-  (def [h w] (grid :size))
+  (def [h w] (grid :dims))
   (def inits (array/concat
                (seq [y :range [0 h]] [[0 y] [1 0]])
                (seq [y :range [0 h]] [[(dec w) y] [-1 0]])
