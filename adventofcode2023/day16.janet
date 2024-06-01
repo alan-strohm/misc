@@ -1,4 +1,5 @@
 (import judge)
+(use ./util)
 
 (def test-input `
 .|...\....
@@ -11,80 +12,60 @@
 .-.-/..|..
 .|....-|.\
 ..//.|....
-
 `)
 
 (def real-input (slurp "./input/16.txt"))
 
 (defn traverse [tile in-dir]
   (match [tile in-dir]
-    ([c [_ _]] (= c (chr "."))) [in-dir]
-    ([c [_ 0]] (= c (chr "-"))) [in-dir]
-    ([c [0 _]] (= c (chr "-"))) [[1 0] [-1 0]]
-    ([c [0 _]] (= c (chr "|"))) [in-dir]
-    ([c [_ 0]] (= c (chr "|"))) [[0 1] [0 -1]]
-    ([c [x y]] (= c (chr "/"))) [[(- y) (- x)]]
-    ([c [x y]] (= c (chr `\`))) [[y x]]
-    (errorf "unknown tile %c and direction %n" tile in-dir)))
+    ["." _] [in-dir]
+    ["-" [_ 0]] [in-dir]
+    ["-" [0 _]] [[1 0] [-1 0]]
+    ["|" [0 _]] [in-dir]
+    ["|" [_ 0]] [[0 1] [0 -1]]
+    ["/" [x y]] [[(- y) (- x)]]
+    [`\` [x y]] [[y x]]
+    (errorf "unknown tile %n and direction %n" tile in-dir)))
 
-(defn vec+ [[x1 y1] [x2 y2]] [(+ x1 x2) (+ y1 y2)])
-
-(defn board/parse [str]
-  (->> str (string/trim) (string/split "\n")))
-
-(defn board/get [board [c l]]
-  (get-in board [l c]))
-
-(defn board/oob? [board [c l]]
-  (def [h w] [(length board) (length (first board))])
-  (or
-    (>= c w)
-    (>= l h)
-    (< l 0)
-    (< c 0)))
-
-(judge/test (board/oob? (board/parse test-input) [0 0]) false)
-
-(defn next-beams [board pos in-dir]
-  (def tile (board/get board pos))
+(defn next-beams [grid [pos in-dir]]
+  (def tile (grid/get grid pos))
   (def out-dirs (traverse tile in-dir))
-  (map tuple (map (partial vec+ pos) out-dirs) out-dirs))
+  (map tuple (map |(vec+ pos $) out-dirs) out-dirs))
 
-(judge/test (next-beams (board/parse test-input) [0 1] [1 0]) @[[[0 2] [0 1]] [[0 0] [0 -1]]])
+(judge/test (next-beams (grid/parse test-input) [[0 1] [1 0]]) @[[[0 2] [0 1]] [[0 0] [0 -1]]])
 
-(defn num-energized [board start-pos start-dir]
+(defn num-energized [grid start-pos start-dir]
   (def q @[[start-pos start-dir]])
 
   (def beams @{})
-  (while (not (empty? q))
-    (def [pos in-dir] (array/pop q))
-    #(printf "visiting %n going in direction %n" pos in-dir)
-    (unless (or
-              (board/oob? board pos)
-              (get-in beams [pos in-dir]))
-      (put-in beams [pos in-dir] true)
-      (each beam (next-beams board pos in-dir)
-        (array/push q beam))))
+  (loop [in-beam :iterate (array/pop q)
+         :let [[pos _] in-beam]
+         :unless (or
+                   (not (grid/contains grid pos))
+                   (get-in beams in-beam))
+         :before (put-in beams in-beam true)
+         next-beam :in (next-beams grid in-beam)]
+    (array/push q next-beam))
   (length beams))
 
 (defn part1 [str]
-  (num-energized (board/parse str) [0 0] [1 0]))
+  (num-energized (grid/parse str) [0 0] [1 0]))
 
 (judge/test (part1 test-input) 46)
 (judge/test (part1 real-input) 7236)
 
 (defn part2 [str]
-  (def board (board/parse str))
-  (def [h w] [(length board) (length (first board))])
-  (def inits (array
-    ;(map |(tuple [0 $] [1 0]) (range h))
-    ;(map |(tuple [(dec w) $] [-1 0]) (range h))
-    ;(map |(tuple [$ 0] [0 1]) (range w))
-    ;(map |(tuple [$ (dec h)] [0 -1]) (range w))))
+  (def grid (grid/parse str))
+  (def [h w] (grid :size))
+  (def inits (array/concat
+               (seq [y :range [0 h]] [[0 y] [1 0]])
+               (seq [y :range [0 h]] [[(dec w) y] [-1 0]])
+               (seq [x :range [0 w]] [[x 0] [0 1]])
+               (seq [x :range [0 w]] [[x (dec h)] [0 -1]])))
 
-  (max-of (map |(num-energized board ;$) inits)))
+  (max-of (map |(num-energized grid ;$) inits)))
 
 (judge/test (part2 test-input) 51)
 
 # 10s
-# (judge/test (part2 real-input) 7521)
+#(judge/test (part2 real-input) 7521)

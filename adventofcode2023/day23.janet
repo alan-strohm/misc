@@ -31,10 +31,7 @@
 
 (def test-grid (grid/parse test-input))
 
-(def slope-to-dir {(chr "^") dir-N
-                   (chr ">") dir-E
-                   (chr "v") dir-S
-                   (chr "<") dir-W})
+(def slope-to-dir {"^" dir-N ">" dir-E "v" dir-S "<" dir-W})
 
 (def dir-to-slope (invert slope-to-dir))
 
@@ -47,15 +44,7 @@
     (vec+= pos dir)
     (++ dist)
 
-    (defn open? [v dir]
-      (def backwards (vec*n dir -1))
-      (def open-slopes
-        (->> dirs4 (filter |(not= backwards $)) (map dir-to-slope)))
-      (def open-set (string/from-bytes ;open-slopes (chr ".")))
-      (string/check-set open-set (string/from-bytes v)))
-
-    (defn open2? [v dir]
-      (string/check-set "<>^v." (string/from-bytes v)))
+    (defn open? [v] (not= "#" v))
 
     (set open-dirs
          (seq [dir :in dirs4
@@ -64,7 +53,7 @@
                :when (and
                        (not (nil? c))
                        (not= backwards dir)
-                       (open2? c dir))]
+                       (open? c))]
            dir))
 
     (if (= 1 (length open-dirs))
@@ -114,4 +103,4 @@
 (judge/test (part1 test-input) 154)
 
 # Runs in 2.5s
-# (judge/test (part1 real-input) 2086)
+(judge/test (part1 real-input) 2086)
