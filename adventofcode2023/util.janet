@@ -23,8 +23,8 @@
                     string/trim
                     (string/split "\n")
                     (map |(map string/from-bytes $))))
-  {:dims [(length (first content)) (length content)]
-   :content content})
+  @{:dims [(length (first content)) (length content)]
+    :content content})
 
 (defn grid/contains [{:dims [max-x max-y]} [x y]]
   (and
@@ -32,6 +32,9 @@
     (>= x 0)
     (< y max-y)
     (>= y 0)))
+
+(defn grid/height [{:dims [_ h]}] h)
+(defn grid/width [{:dims [w _]}] w)
 
 (defn grid/get [{:content content} [x y]]
   (assert content "invalid grid: nil content")
@@ -42,8 +45,9 @@
           (string/format "oob point: %n dims: %n" p (grid :dims))))
 
 (defn grid/set [grid p v]
-  (grid/check-oob grid p)
-  (assert (string? v) (string/format "invalid value: %n" v))
+  (compwhen (dyn *debug*)
+    (grid/check-oob grid p)
+    (assert (string? v) (string/format "invalid value: %n" v)))
   (let [{:content content} grid
         [x y] p]
     (put-in content [y x] v)))
@@ -60,6 +64,12 @@
 (defn grid/format [{:content content}]
   (assert content "invalid grid: nil content")
   (string/join (map |(string/join $ "") content) "\n"))
+
+(defn p2+ [[x1 y1 & rest1] [x2 y2 & rest2]]
+  (compwhen (dyn *debug*)
+    (assert (empty? rest1) "first argument has %d elements" (+ 2 (length rest1)))
+    (assert (empty? rest2) "second argument has %d elements" (+ 2 (length rest1))))
+  [(+ x1 x2) (+ y1 y2)])
 
 (defn vec+ [first & rest]
   (assert (all |(= (length $) (length first)) rest) "all args must be the same length")
