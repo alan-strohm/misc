@@ -54,9 +54,9 @@ O.#..O.#.#
   (var [rows dir] [(array/new-filled (grid/height grid)) dir-N])
 
   (defn append-rock [rocks i p]
-    (if-let [existing (in rocks i)]
-      (array/push existing p)
-      (put rocks i @[p])))
+    (def arr (or (in rocks i)
+                 (set (rocks i) @[])))
+    (array/push arr p))
 
   (loop [[p v] :in (grid/pairs grid)
          :when (= v rock)]
