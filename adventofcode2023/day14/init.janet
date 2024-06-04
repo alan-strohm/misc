@@ -17,102 +17,75 @@ O.#..O.#.#
 
 (def real-input (slurp "./day14/input.txt"))
 
-(def types
-  {(chr ".") :.
-   (chr "#") :$
-   (chr "O") :O})
+(def [rock space] ["O" "."])
 
-(defn load [str]
-  (->> str string/trim (string/split "\n") (map |(map types $))))
+(judge/test-stdout (-> test-input grid/parse grid/format prin) `
+  O....#....
+  O.OO#....#
+  .....##...
+  OO.#O....O
+  .O.....O#.
+  O.#..O.#.#
+  ..O..#O..O
+  .......O..
+  #....###..
+  #OO..#....
+`)
 
-(judge/test (load test-input)
-  @[@[:O :. :. :. :. :$ :. :. :. :.]
-    @[:O :. :O :O :$ :. :. :. :. :$]
-    @[:. :. :. :. :. :$ :$ :. :. :.]
-    @[:O :O :. :$ :O :. :. :. :. :O]
-    @[:. :O :. :. :. :. :. :O :$ :.]
-    @[:O :. :$ :. :. :O :. :$ :. :$]
-    @[:. :. :O :. :. :$ :O :. :. :O]
-    @[:. :. :. :. :. :. :. :O :. :.]
-    @[:$ :. :. :. :. :$ :$ :$ :. :.]
-    @[:$ :O :O :. :. :$ :. :. :. :.]])
-
-(defn p+ [[x1 y1] [x2 y2]] [(+ x1 x2) (+ y1 y2)])
-(def dirs [[0 -1] [-1 0] [0 1] [1 0]])
-(def [N W S E] dirs)
+(def dir-order [dir-N dir-W dir-S dir-E])
 
 (defn tilt [grid dir]
-  (def yt (if (= dir S) reverse identity))
-  (def xt (if (= dir E) reverse identity))
-  (loop [[y line] :in (yt (pairs grid))
+  (def yt (if (= dir dir-S) reverse identity))
+  (def xt (if (= dir dir-E) reverse identity))
+  (loop [[y line] :in (yt (pairs (grid :content)))
          [x item] :in (xt (pairs line))
-         :when (= :O item)]
+         :when (= rock item)]
     (var p [x y])
-    (var dst nil)
-    (loop [oitem :iterate (do (set p (p+ p dir)) (get-in grid (reverse p)))]
-      (if (= :. oitem) (set dst p) (break)))
-    (if dst
-      (do
-        (put-in grid (reverse dst) :O)
-        (put-in grid [y x] :.))))
+    (loop [next-p :iterate (p2+ p dir)
+           :while (= space (grid/get grid next-p))]
+      (set p next-p))
+    (grid/set grid [x y] space)
+    (grid/set grid p rock))
   grid)
 
-(judge/test (tilt (load test-input) E)
-  @[@[:. :. :. :. :O :$ :. :. :. :.]
-    @[:. :O :O :O :$ :. :. :. :. :$]
-    @[:. :. :. :. :. :$ :$ :. :. :.]
-    @[:. :O :O :$ :. :. :. :. :O :O]
-    @[:. :. :. :. :. :. :O :O :$ :.]
-    @[:. :O :$ :. :. :. :O :$ :. :$]
-    @[:. :. :. :. :O :$ :. :. :O :O]
-    @[:. :. :. :. :. :. :. :. :. :O]
-    @[:$ :. :. :. :. :$ :$ :$ :. :.]
-    @[:$ :. :. :O :O :$ :. :. :. :.]])
+(judge/test-stdout (-> (tilt (grid/parse test-input) dir-E) grid/format prin) `
+  ....O#....
+  .OOO#....#
+  .....##...
+  .OO#....OO
+  ......OO#.
+  .O#...O#.#
+  ....O#..OO
+  .........O
+  #....###..
+  #..OO#....
+`)
 
-(defn calc-load [key len]
-  (sum-loop [[_ y] :in key] (- len y)))
-
-(defn key [grid]
-  (tuple ;(seq [[y line] :pairs grid
-                [x char] :pairs line
-                :when (= :O char)]
-            [x y])))
+(defn calc-load [grid]
+  (def [_ height] (grid :dims))
+  (sum-loop [[[_ y] v] :in (grid/pairs grid)
+             :when (= rock v)]
+            (- height y)))
 
 (defn part1 [str]
-  (def grid (-> str (load) (tilt N)))
-  (calc-load (key grid) (length grid)))
+  (def grid (-> str grid/parse (tilt dir-N)))
+  (calc-load grid))
 
 (judge/test (part1 test-input) 136)
 (judge/test (part1 real-input) 108889)
 
 (defn spin [grid]
-  (each dir dirs (tilt grid dir))
+  (each dir dir-order (tilt grid dir))
   grid)
 
-(defn grid/print [grid]
-  (each line grid (print (string ;line))))
-
-(judge/test-stdout (grid/print (load test-input)) `
-  O....$....
-  O.OO$....$
-  .....$$...
-  OO.$O....O
-  .O.....O$.
-  O.$..O.$.$
-  ..O..$O..O
-  .......O..
-  $....$$$..
-  $OO..$....
-`)
-
 (defn part2 [str]
-  (def grid (load str))
+  (def grid (grid/parse str))
   (def seen @{})
 
   (var cnt 0)
   (var loop-start 0)
 
-  (loop [k :iterate (key (spin grid))]
+  (loop [k :iterate (grid/format (spin grid))]
     (when-let [start (seen k)]
       (set loop-start start)
       (break))
@@ -121,11 +94,10 @@ O.#..O.#.#
 
   (def loop-len (- cnt loop-start))
   (def target-cnt (-> 1000000000 dec (- loop-start) (% loop-len) (+ loop-start)))
-  (calc-load
-    (find-index (partial = target-cnt) seen)
-    (length grid)))
+  (def target-grid (grid/parse (find-index |(= $ target-cnt) seen)))
+  (calc-load target-grid))
 
 (judge/test (part2 test-input) 64)
 
-# 13s 
+# 5s
 # (judge/test (part2 real-input) 104671)
