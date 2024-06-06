@@ -26,6 +26,9 @@
   @{:dims [(length (first content)) (length content)]
     :content content})
 
+(defn grid/map [{:content content :dims dims} f]
+  {:content (map |(map f $) content) :dims dims})
+
 (defn grid/contains [{:dims [max-x max-y]} [x y]]
   (and
     (< x max-x)
