@@ -1,4 +1,5 @@
 (import judge)
+(use ./util)
 
 (def test-input `
 R 6 (#70c710)
@@ -20,13 +21,10 @@ U 2 (#7a21e3)
 
 (def real-input (slurp "./input/18.txt"))
 
-(def char-to-dir {"R" [1 0] "L" [-1 0] "U" [0 -1] "D" [0 1]})
-
-(def peg
-  (peg/compile
-    ~{:rgb (* "(#" (6 :h) ")")
-      :line (* (/ ':a ,char-to-dir) " " (number :d+) " " :rgb (+ "\n" -1))
-      :main (some (group :line))}))
+(def peg ~{:main (some (group :line))
+           :line (* :dir " " (number :d+) " " (thru (+ "\n" -1)))
+           :dir (/ '1 ,{"R" dir-E "L" dir-W "U" dir-N "D" dir-S})
+           })
 
 (judge/test (peg/match peg test-input)
   @[@[[1 0] 6]
@@ -44,83 +42,44 @@ U 2 (#7a21e3)
     @[[-1 0] 2]
     @[[0 -1] 2]])
 
-(defn vec*n [[x y] s] [(* s x) (* s y)])
-(defn vec+ [[x1 y1] [x2 y2]] [(+ x1 x2) (+ y1 y2)])
-(defmacro vec+= [v1 v2]
-  ~(set ,v1 (,vec+ ,v1 ,v2)))
+(defn solve [steps]
+  (def area (sum-loop
+              [:before (var cur [0 0])
+               [dir cnt] :in steps
+               :let [[x1 y1] cur
+                     [x2 y2] (set cur (vec+ cur (vec*n dir cnt)))]]
+              (* 0.5 (+ x1 x2) (- y1 y2))))
+  (def perimeter (sum-loop [[_ cnt] :in steps] cnt))
+  (def interior (+ (math/abs area) (* -0.5 perimeter) 1))
+  (+ perimeter interior))
 
-(def test-input3 `
-R 2 (#70c710)
-D 2 (#70c710)
-L 2 (#70c710)
-U 2 (#70c710)
-`)
+(defn part1 [input] (solve (peg/match peg input)))
 
-(defn get-perimeter [plan]
-  (var pos [0 0])
-  (seq [[dir steps] :in plan]
-    (vec+= pos (vec*n dir steps))))
+(judge/test (part1 test-input) 62)
+(judge/test (part1 real-input) 46334)
 
-(defn area-inside [vertices]
-  (/ (sum
-       (seq [i :range [0 (dec (length vertices))]]
-         (def [x1 y1] (vertices i))
-         (def [x2 y2] (vertices (inc i)))
-         (* (- x1 x2) (+ y1 y2))))
-     2))
+(def peg ~{:main (some (/ (group :line) ,reverse))
+           :line (* 1 " " :d+ " (#" (number 5 16) :dir ")" (+ "\n" -1))
+           :dir (/ '1 ,{"0" dir-E "1" dir-S "2" dir-W "3" dir-N})
+           })
 
-(judge/test (area-inside @[[2 0] [2 1] [0 1] [0 0]]) 2)
+(judge/test (peg/match peg test-input)
+  @[@[[1 0] 461937]
+    @[[0 1] 56407]
+    @[[1 0] 356671]
+    @[[0 1] 863240]
+    @[[1 0] 367720]
+    @[[0 1] 266681]
+    @[[-1 0] 577262]
+    @[[0 -1] 829975]
+    @[[-1 0] 112010]
+    @[[0 1] 829975]
+    @[[-1 0] 491645]
+    @[[0 -1] 686074]
+    @[[-1 0] 5411]
+    @[[0 -1] 500254]])
 
-(defn part1 [str]
-  (def plan (peg/match peg str))
-  (+
-   (math/abs (area-inside (get-perimeter plan)))
-   (sum (map last plan))))
+(defn part2 [input] (solve (peg/match peg input)))
 
-(judge/test (area-inside (get-perimeter (peg/match peg test-input))) 42)
-(judge/test (sum (map last (peg/match peg test-input))) 38)
-(judge/test (part1 test-input) 80)
-
-(defn dig-outline [plan]
-  (var pos [0 0])
-  (def dug @{pos true})
-  (loop [[dir steps] :in plan
-         step :range [0 steps]]
-    (vec+= pos dir)
-    (put dug pos true))
-  dug)
-
-(defn dig/print [dug]
-  (let [max-x (max-of (map first (keys dug)))
-        min-x (min-of (map first (keys dug)))
-        max-y (max-of (map last (keys dug)))
-        min-y (min-of (map last (keys dug)))]
-    (loop [y :range [min-y (inc max-y)]
-           :after (print)
-           x :range [min-x (inc max-x)]]
-      (if (dug [x y]) (prin "#") (prin ".")))))
-
-#(dig/print (dig-outline (peg/match peg real-input)))
-
-(defn part1 [str]
-  (dig/print (dig-outline (peg/match peg str))))
-
-(defn rot-90-ccw [[x y]] [y x])
-
-
-(def test-input2 `
-U 1 (#70c710)
-R 1 (#70c710)
-D 1 (#70c710)
-R 1 (#70c710)
-D 1 (#70c710)
-L 2 (#70c710)
-U 1 (#70c710)
-`)
-
-(judge/test-stdout (part1 test-input3) `
-  ###
-  #.#
-  ###
-`)
-
+(judge/test (part2 test-input) 952408144115)
+(judge/test (part2 real-input) 102000662718092)
