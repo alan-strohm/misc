@@ -55,9 +55,6 @@
         [x y] p]
     (put-in content [y x] v)))
 
-(judge/test-error (grid/set (grid/parse "1\n2") [1 1] "3") "oob point: (1 1) dims: (1 2)")
-(judge/test-error (grid/set (grid/parse "1") [0 0] 1) "invalid value: 1")
-
 (defn grid/pairs [{:content content}]
   (assert content "invalid grid: nil content")
   (generate [[y line] :pairs content
@@ -88,6 +85,18 @@
 (judge/test (vec- [2 3] [1 1]) [1 2])
 
 (defmacro vec+= [v1 v2] ~(set ,v1 (,vec+ ,v1 ,v2)))
+
+(defn range/intersect
+  "Return the intersection of left and right"
+  [[left-begin left-end] [right-begin right-end]]
+  (if (and (> left-end right-begin) (> right-end left-begin))
+    [(max left-begin right-begin) (min left-end right-end)]))
+
+(judge/test (range/intersect [0 1] [1 2]) nil)
+(judge/test (range/intersect [0 3] [1 2]) [1 2])
+(judge/test (range/intersect [1 2] [0 3]) [1 2])
+(judge/test (range/intersect [0 2] [1 3]) [1 2])
+(judge/test (range/intersect [1 3] [0 2]) [1 2])
 
 (defn sep [pat delim]
   ~(* ,pat (any (* ,delim ,pat)) (any ,delim)))

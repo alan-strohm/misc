@@ -1,4 +1,5 @@
 (import judge)
+(use ../util)
 
 (def test-input (slurp "./day05/example.txt"))
 (def real-input (slurp "./day05/input.txt"))
@@ -22,26 +23,13 @@
     @[@[0 69 1] @[1 0 69]]
     @[@[60 56 37] @[56 93 4]]])
 
-(defn intersect
-  "Return the intersection of left and right"
-  [[left-begin left-end] [right-begin right-end]]
-  (if (or (<= left-end right-begin) (<= right-end left-begin))
-    nil
-    [(max left-begin right-begin) (min left-end right-end)]))
-
-(judge/test (intersect [0 1] [1 2]) nil)
-(judge/test (intersect [0 3] [1 2]) [1 2])
-(judge/test (intersect [1 2] [0 3]) [1 2])
-(judge/test (intersect [0 2] [1 3]) [1 2])
-(judge/test (intersect [1 3] [0 2]) [1 2])
-
 (defn split 
   "Return the portion of left before, intersecting and after right"
   [[left-begin left-end] [right-begin right-end]]
   [(if (< left-begin right-begin)
      [left-begin (min left-end right-begin)]
      nil)
-   (intersect [left-begin left-end] [right-begin right-end])
+   (range/intersect [left-begin left-end] [right-begin right-end])
    (if (> left-end right-end)
      [(max left-begin right-end) left-end]
      nil)
