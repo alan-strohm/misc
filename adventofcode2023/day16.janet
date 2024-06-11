@@ -16,36 +16,37 @@
 
 (def real-input (slurp "./input/16.txt"))
 
-(defn traverse [tile in-dir]
+(defn traverse [pos tile in-dir]
+  (defn out [dir] [(p2+ pos dir) dir])
+
   (match [tile in-dir]
-    ["." _] [in-dir]
-    ["-" [_ 0]] [in-dir]
-    ["-" [0 _]] [[1 0] [-1 0]]
-    ["|" [0 _]] [in-dir]
-    ["|" [_ 0]] [[0 1] [0 -1]]
-    ["/" [x y]] [[(- y) (- x)]]
-    [`\` [x y]] [[y x]]
+    ["." _] [(out in-dir)]
+    ["-" [_ 0]] [(out in-dir)]
+    ["-" [0 _]] [(out [1 0]) (out [-1 0])]
+    ["|" [0 _]] [(out in-dir)]
+    ["|" [_ 0]] [(out [0 1]) (out [0 -1])]
+    ["/" [x y]] [(out [(- y) (- x)])]
+    [`\` [x y]] [(out [y x])]
     (errorf "unknown tile %n and direction %n" tile in-dir)))
 
 (defn next-beams [grid [pos in-dir]]
   (def tile (grid/get grid pos))
-  (def out-dirs (traverse tile in-dir))
-  (map tuple (map |(vec+ pos $) out-dirs) out-dirs))
+  (traverse pos tile in-dir))
 
-(judge/test (next-beams (grid/parse test-input) [[0 1] [1 0]]) @[[[0 2] [0 1]] [[0 0] [0 -1]]])
+(judge/test (next-beams (grid/parse test-input) [[0 1] [1 0]]) [[[0 2] [0 1]] [[0 0] [0 -1]]])
 
 (defn num-energized [grid start-pos start-dir]
   (def q @[[start-pos start-dir]])
 
   (def beams @{})
   (loop [in-beam :iterate (array/pop q)
-         :let [[pos _] in-beam]
+         :let [[pos _] in-beam
+               k in-beam]
          :unless (or
                    (not (grid/contains grid pos))
-                   (get-in beams in-beam))
-         :before (put-in beams in-beam true)
-         next-beam :in (next-beams grid in-beam)]
-    (array/push q next-beam))
+                   (get-in beams k))
+         :before (put-in beams k true)]
+    (array/push q ;(next-beams grid in-beam)))
   (length beams))
 
 (defn part1 [str]
@@ -67,5 +68,5 @@
 
 (judge/test (part2 test-input) 51)
 
-# 10s
-#(judge/test (part2 real-input) 7521)
+# 4s on macbook
+# (judge/test (part2 real-input) 7521)
