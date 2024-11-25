@@ -19,143 +19,141 @@ broadcaster -> a
 (def real-input (slurp "./input/20.txt"))
 
 (def peg
-  (peg/compile
-    ~{:broadcaster (* "broadcaster" (constant nil) (constant :bcast))
-      :typed (* (/ '(set "%&") ,keyword) (/ ':a+ ,keyword))
-      :module (+ :broadcaster :typed)
-      :outs (group ,(sep ~(/ ':a+ ,keyword) ", "))
-      :line (/ (* :module " -> " :outs) ,(fn [t n os] [n @{:type t :outs os}]))
-      :lines (/ (group ,(sep ':line "\n")) ,from-pairs)
-      :main (* :lines (any "\n") -1)
-      #:main (* (any (* :line "\n")) :line (any 1))
-      }))
+  ~{:main (split "\n" (+ -1 :line))
+    :line (/ (* :module " -> " :outputs) ,|[$1 @{:type $0 :outputs $2}])
+    :module (+ :broadcaster :typed)
+    :broadcaster (* "broadcaster" (constant :bcast) (constant :bcast))
+    :typed (* (/ '(set "%&") ,keyword) (/ ':a+ ,keyword))
+    :outputs (group (split ", " (/ ':a+ ,keyword)))
+    })
 
-(defn mac/new [str] 
-  (def mac (in (peg/match peg str) 0))
-  (eachp [id {:outs outs}] mac
-    (each out outs
-      (if (= :& (get-in mac [out :type]))
-        (put-in mac [out :ins id] :low))))
-  mac)
+(judge/test (peg/match peg test-input2)
+  @[[:bcast @{:outputs @[:a] :type :bcast}]
+    [:a @{:outputs @[:inv :con] :type :%}]
+    [:inv @{:outputs @[:b] :type :&}]
+    [:b @{:outputs @[:con] :type :%}]
+    [:con @{:outputs @[:output] :type :&}]])
+
+(def component-builders
+  "For each each component type, a constructor function which takes the input
+  IDs for the component and returns a function which maps a signal from a
+  single input to an output signal or nil if the component outputs nothing"
+  {:bcast (fn [inputs] (fn [from sig] sig))
+   :% (fn [inputs]
+        (var state false)
+        (fn [from sig]
+          (when (= sig :low)
+            (set state (not state))
+            (if state :high :low))))
+   :& (fn [inputs]
+        (def state (tabseq [id :in inputs] id :low))
+        (fn [from sig]
+          (put state from sig)
+          (if (all |(= $ :high) state)
+            :low :high)))})
+
+(defn mac/new [str]
+  (def mac (from-pairs (peg/match peg str)))
+  (loop [[id {:outputs outputs}] :pairs mac
+         output :in outputs
+         :when (mac output)]
+    (put-in mac [output :inputs id] true))
+  (tabseq [[id {:type t :inputs inputs :outputs outputs}] :pairs mac
+           :let [builder (assert (in component-builders t) (string/format "no builder for id: %q, type: %q" id t))
+                 inputs (if inputs (keys inputs) @[])]]
+    id {:next-sig-fn (builder inputs)
+        :outputs outputs
+        :inputs inputs}))
 
 (judge/test (mac/new test-input1)
-  @{:a @{:outs @[:b] :type :%}
-    :b @{:outs @[:c] :type :%}
-    :bcast @{:outs @[:a :b :c]}
-    :c @{:outs @[:inv] :type :%}
-    :inv @{:ins @{:c :low} :outs @[:a] :type :&}})
+  @{:a {:inputs @[:bcast :inv]
+        :next-sig-fn "<function 0x3>"
+        :outputs @[:b]}
+    :b {:inputs @[:bcast :a]
+        :next-sig-fn "<function 0x4>"
+        :outputs @[:c]}
+    :bcast {:inputs @[]
+            :next-sig-fn "<function 0x1>"
+            :outputs @[:a :b :c]}
+    :c {:inputs @[:bcast :b]
+        :next-sig-fn "<function 0x5>"
+        :outputs @[:inv]}
+    :inv {:inputs @[:c]
+          :next-sig-fn "<function 0x2>"
+          :outputs @[:a]}})
 
+(defn mac/push [mac observe]
+  (var in-flight @[[:but :low :bcast]])
+  (observe ;(first in-flight))
 
-(defn handle-signal [in-id in-mod in-sig]
-  (defn output [sig] (seq [out :in (in-mod :outs)] [out sig]))
-  (cond
-    (nil? (in-mod :type)) (output in-sig)
-    (and
-      (= (in-mod :type) :%)
-      (= in-sig :low))
-    (let [on (in-mod :state)]
-      (put in-mod :state (not on))
-      (if on (output :low) (output :high)))
-    (= (in-mod :type) :&)
-    (do
-      (put-in in-mod [:ins in-id] in-sig)
-      (if (all |(= $ :high) (in in-mod :ins))
-        (output :low)
-        (output :high)))
-    []))
+  (while (not (empty? in-flight))
+    (def to-handle in-flight)
+    (set in-flight @[])
+    (loop [[from sig to] :in to-handle
+           :let [{:outputs outputs :next-sig-fn next-sig-fn} (mac to)
+                 sig (next-sig-fn from sig)]
+           :when sig
+           output :in outputs]
+      (def entry [to sig output])
+      (observe ;entry)
+      (when (mac output) (array/push in-flight entry)))
+    ))
 
-(judge/test (handle-signal :bcast @{:outs [:a :b]} :low) @[[:a :low] [:b :low]])
-(judge/test (handle-signal :a @{:outs [:b] :ins {:a :low}} :high) @[[:b :high]])
+(defn first-signals [str]
+  (def arr @[])
+  (def mac (mac/new str))
+  (mac/push mac |(array/push arr $&))
+  arr)
 
-(defn mac/push [mac]
-  (var q @[[:but :low :bcast]])
-  (def sent @{:but @[:low]})
+(judge/test (first-signals test-input1)
+  @[[:but :low :bcast]
+    [:bcast :low :a]
+    [:bcast :low :b]
+    [:bcast :low :c]
+    [:a :high :b]
+    [:b :high :c]
+    [:c :high :inv]
+    [:inv :low :a]
+    [:a :low :b]
+    [:b :low :c]
+    [:c :low :inv]
+    [:inv :high :a]])
 
-  (while (not (empty? q))
-    (def to-handle q)
-    (set q @[])
-    (each [from in-sig to] to-handle
-      (each [out-mod out-sig] (handle-signal from (mac to) in-sig)
-        (if (nil? (in sent out-mod)) (put sent out-mod @[]))
-        (array/push (in sent out-mod) out-sig)
-        (if (mac out-mod)
-          (array/push q [to out-sig out-mod])))))
-
-  sent)
-
-(judge/test (mac/push (mac/new test-input1))
-  @{:a @[:low :low :high]
-    :b @[:low :high :low]
-    :but @[:low]
-    :c @[:low :high :low]
-    :inv @[:high :low]})
-
-(judge/test (mac/push (mac/new test-input2))
-  @{:a @[:low]
-    :b @[:low]
-    :but @[:low]
-    :con @[:high :high]
-    :inv @[:high]
-    :output @[:high :low]})
+(judge/test (first-signals test-input2)
+  @[[:but :low :bcast]
+    [:bcast :low :a]
+    [:a :high :inv]
+    [:a :high :con]
+    [:inv :low :b]
+    [:con :high :output]
+    [:b :high :con]
+    [:con :low :output]])
 
 (defn part1 [str]
   (def mac (mac/new str))
   (def cnts @{:high 0 :low 0})
-  (repeat 1000
-    (let [sigs (mac/push mac)]
-      (each sig (mapcat identity sigs)
-        (update cnts sig inc))))
+  (loop [:repeat 1000]
+    (mac/push mac (fn [_ sig _] (update cnts sig inc))))
   (product cnts))
 
-(judge/test (part1 test-input1) 32000000) 
-(judge/test (part1 real-input) 806332748) 
-
-#(def freq/n [[num denom] n] [num (* n denom)])
-#(def freq+ [[n1 d1] [n2 d2]]
-#  (let [d (math/lcm d1 d2)]
-#    [(+ (* n1 (/ d1 d)) (* n2 (/ d2 d))) d]))
-#
-#(defn handle-freq [from mod freq]
-#  (defn output [freq] (seq [out :in (mod :outs)] [out freq]))
-#  (cond
-#    (nil? (mod :type)) (output freq)
-#    (= (in-mod :type) :%) (output
-#                            @{:low (freq/n (freq :low) 2)
-#                              :high (freq/n (freq :low) 2)
-#                              :none (freq+ (freq :high) (freq :none)))
-#    (= (in-mod :type) :&)
-#    (do
-#      (put-in in-mod [:in-freq from] freq)
-#      (if (all identity (in in-mod :in-freqs))
-#        (output @{:none 0
-#                  :low (product (in in-mod :in-freqs)))
-#        ))
-#    []))
-#
-#(defn part2 [str]
-#  (def mac (mac/new str))
-#  (def q @[[:but {:low [1 1] :high [0 0] :none [0 0]} :bcast]])
-#  (label
-#    result
-#    (while (not (empty? q))
-#      (def [from in-freq to] (array/pop q))
-#      (each [out out-freq] (handle-freq from (mac to) in-freq)
-#        (if (not (mac out))
-#          (return result out-freq))
-#        (array/push q [to out-freq out]))
-#      )))
-
-(defn print-ins [ins]
-  (each s (values ins)
-    (case s :low (prin "0") (prin "1")))
-  (print))
+(judge/test (part1 test-input1) 32000000)
+(judge/test (part1 test-input2) 11687500)
+(judge/test (part1 real-input) 806332748)
 
 (defn part2 [str]
   (def mac (mac/new str))
-  (for i 0 100
-    (mac/push mac)
-    (print-ins ((mac :fb) :ins))
-  )
-  )
+  (def goal :xn)
+  (def seen (tabseq [input :in (get-in mac [goal :inputs])]
+                    input false))
+  (var pushes 0)
 
-#(judge/test (part2 real-input) nil)
+  (defn update-seen [from sig to]
+    (when (and (= to goal) (= sig :high))
+      (put seen from pushes)))
+
+  (while (some false? seen)
+    (++ pushes)
+    (mac/push mac update-seen))
+  (reduce2 |(math/lcm $0 $1) seen))
+
+(judge/test (part2 real-input) 228060006554227)
