@@ -46,30 +46,32 @@
 (judge/test (tab-arr-seq [:repeat 2] 1 2) @{1 @[2 2]})
 
 (defn find-supports [bricks]
-  (def by-lo-z (tab-arr-seq [[i {:lo [_ _ z]}] :pairs bricks] z i))
-  (def max-lo-z (max-of (keys by-lo-z)))
+  (def by-z (reduce |(put-in $0 $1 true) @{}
+                    (seq [[i brick] :pairs bricks
+                          [dim [_ _ z]] :pairs  brick]
+                      [dim z i])))
+  (defn update-indices [i]
+    (loop [[dim [_ _ z]] :pairs (in bricks i)]
+      (put-in by-z [dim z i] true)))
+
+  (def max-lo-z (max-of (keys (by-z :lo))))
 
   (var supports @{})
   (var falling @{})
 
-  (printf "max-z: %d" max-lo-z)
-
   # Going from the bottom up, mark each z level as "falling" and then lower
   # each falling brick until it is supported.
   (loop [z :range-to [2 max-lo-z]
-         :before (print z)
-         :before (set falling (make-set (or (in by-lo-z z) [])))
-         :before (put by-lo-z z nil)
+         :before (set falling (get-in by-z [:lo z] @{}))
+         :before (put-in by-z [:lo z] nil)
          i :iterate (first (keys falling))
-         :let [this (lower (in bricks i))]  # TODO: keep lowering until we get to a non-empty level.
+         :before (put-in by-z [:hi (get-in bricks [i :hi 2]) i] nil)
+         :let [this (lower (in bricks i))]
          :after (when (falling i) (put bricks i this))
          :after (when (on-ground? this) (put falling i nil))
-         :after (when (not (falling i))
-                  (let [z (get-in bricks [i 2])]  # (this 2) might have been lowered too far.
-                    (update by-lo-z z |(array/push (or $ @[]) i))))
-         [j other] :pairs bricks  # TODO: maybe only check against bricks at the new level?
-         :when (not= i j)
-         :when (overlaps? this other)]
+         :after (when (not (falling i)) (update-indices i))
+         j :keys (get-in by-z [:hi (get-in this [:lo 2])] @{})
+         :when (overlaps? this (in bricks j))]
     (update supports j |(array/push (or $ @[]) i))
     (put falling i nil))
   supports)
@@ -98,7 +100,6 @@
 (defn part1 [str]
   (def bricks (peg/match peg str))
   (def supported-by (-> bricks find-supports invert-keys))
-  # Is there a case where a brick can be supported by the ground and another brick?
   (def dangerous (tabseq [[k vs] :pairs supported-by
                           :when (= 1 (length vs))]
                          (first vs) true))
@@ -107,5 +108,4 @@
             1))
 
 (judge/test (part1 test-input) 5)
-# This takes 3.5s currently.
-(judge/test (part1 real-input) 476)  # Wrong! Too low.
+(judge/test (part1 real-input) 511)  # Still wrong!
