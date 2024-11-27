@@ -59,18 +59,24 @@
                       :when (options cell)]
                      1))))
 
-(defn solve [str steps]
-  (def [start grid] (load str))
+(defn find-options [[start grid] steps]
   (var options {start true})
   (for i 0 steps
     (set options (advance grid options)))
-  (print-num-options-per-sector options (grid :dims))
-  (length options))
+  options)
 
-(judge/test (solve test-input 6) 16)
-(judge/test (solve real-input 64) 3841)
+(defn part1 [str steps]
+  (length (find-options (load str) steps)))
 
-(judge/test-stdout (solve test-input 33) `
+(judge/test (part1 test-input 6) 16)
+(judge/test (part1 real-input 64) 3841)
+
+(defn part2 [str steps]
+  (def [start grid] (load str))
+  (def options (find-options [start grid] steps))
+  (print-num-options-per-sector options (grid :dims)))
+
+(judge/test-stdout (part2 test-input 33) `
        0     0     0     0     0     0     0     0     0
        0     0     0     0     2     0     0     0     0
        0     0     0    18    34    24     0     0     0
@@ -80,8 +86,7 @@
        0     0     0    21    30    12     0     0     0
        0     0     0     0     1     0     0     0     0
        0     0     0     0     0     0     0     0     0
-`
-  644)
+`)
 
 # This takes 90s to run.
 #(judge/test-stdout (solve real-input (+ 66 (* 2 131) -1)) `
