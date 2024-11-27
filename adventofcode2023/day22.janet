@@ -58,6 +58,7 @@
 
   (var supports @{})
   (var falling @{})
+  (var fell @{})
 
   # Going from the bottom up, mark each z level as "falling" and then lower
   # each falling brick until it is supported.
@@ -69,29 +70,30 @@
          :before (put-in by-z [:hi (get-in bricks [i :hi 2]) i] nil)
          :let [this (lower (in bricks i))]
          :after (do
-                  (when (falling i) (put bricks i this) )
-                  (when (on-ground? this) (put falling i nil) )
-                  (when (not (falling i)) (update-indices i) ))
+                  (when (falling i) (put bricks i this) (put fell i true))
+                  (when (on-ground? this) (put falling i nil))
+                  (when (not (falling i)) (update-indices i)))
          j :keys (get-in by-z [:hi (get-in this [:lo 2])] @{})
          :when (overlaps? this (in bricks j))]
     (update supports j |(array/push (or $ @[]) i))
     (put falling i nil))
-  supports)
+  [supports (length fell)])
 
 (judge/test (find-supports (->> test-input (peg/match peg)))
-  @{0 @[1 2]
-    1 @[3 4]
-    2 @[3 4]
-    3 @[5]
-    4 @[5]
-    5 @[6]})
+  [@{0 @[1 2]
+     1 @[3 4]
+     2 @[3 4]
+     3 @[5]
+     4 @[5]
+     5 @[6]}
+   5])
 
 (defn invert-keys [iter]
   (tab-arr-seq [[k vs] :pairs iter
                 v :in vs]
                v k))
 
-(judge/test (invert-keys (->> test-input (peg/match peg) find-supports))
+(judge/test (invert-keys (->> test-input (peg/match peg) find-supports first))
   @{1 @[0]
     2 @[0]
     3 @[1 2]
@@ -101,7 +103,7 @@
 
 (defn part1 [str]
   (def bricks (peg/match peg str))
-  (def supported-by (-> bricks find-supports invert-keys))
+  (def supported-by (-> bricks find-supports first invert-keys))
   (def dangerous (tabseq [[k vs] :pairs supported-by
                           :when (= 1 (length vs))]
                          (first vs) true))
@@ -111,3 +113,15 @@
 
 (judge/test (part1 test-input) 5)
 (judge/test (part1 real-input) 477)
+
+(defn part2 [str]
+  (def bricks (peg/match peg str))
+  (find-supports bricks)
+  (sum-loop [i :keys bricks]
+            (last (find-supports (seq [[j b] :pairs bricks
+                                       :when (not= j i)]
+                                   b)))))
+
+(judge/test (part2 test-input) 7)
+# 40s
+# (judge/test (part2 real-input) 61555)
