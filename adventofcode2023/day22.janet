@@ -46,19 +46,21 @@
 (judge/test (tab-arr-seq [:repeat 2] 1 2) @{1 @[2 2]})
 
 (defn find-supports [bricks]
-  (def by-z (reduce |(put-in $0 $1 true) @{}
-                    (seq [[i brick] :pairs bricks
-                          [dim [_ _ z]] :pairs  brick]
-                      [dim z i])))
-  (defn update-indices [i]
+  # Index from dimension (:hi or :lo) -> z -> the set of bricks with that z
+  # coordinate of that dimension.
+  (def by-z @{})
+  # Put v into the by-z index for brick i based on its current dimensions.
+  (defn set-index [i v]
     (loop [[dim [_ _ z]] :pairs (in bricks i)]
-      (put-in by-z [dim z i] true)))
+      (put-in by-z [dim z i] v)))
+
+  (map |(set-index $ true)  (keys bricks))
 
   (def max-lo-z (max-of (keys (by-z :lo))))
 
-  (var supports @{})
-  (var falling @{})
-  (var fell @{})
+  (var supports "A list of brick IDs keyed by the brick ID which supports them." @{})
+  (var falling "A list of brick IDs which are currently still falling." @{})
+  (var fallen "A list of brick IDs which have fallen" @{})
 
   # Going from the bottom up, mark each z level as "falling" and then lower
   # each falling brick until it is supported.
@@ -67,17 +69,17 @@
                    (set falling (get-in by-z [:lo z] @{}))
                    (put-in by-z [:lo z] nil))
          i :iterate (first (keys falling))
-         :before (put-in by-z [:hi (get-in bricks [i :hi 2]) i] nil)
+         :before (set-index i nil)
          :let [this (lower (in bricks i))]
          :after (do
-                  (when (falling i) (put bricks i this) (put fell i true))
+                  (when (falling i) (put bricks i this) (put fallen i true))
                   (when (on-ground? this) (put falling i nil))
-                  (when (not (falling i)) (update-indices i)))
+                  (when (not (falling i)) (set-index i true)))
          j :keys (get-in by-z [:hi (get-in this [:lo 2])] @{})
          :when (overlaps? this (in bricks j))]
     (update supports j |(array/push (or $ @[]) i))
     (put falling i nil))
-  [supports (length fell)])
+  [supports (length fallen)])
 
 (judge/test (find-supports (->> test-input (peg/match peg)))
   [@{0 @[1 2]
