@@ -62,14 +62,16 @@
   # Going from the bottom up, mark each z level as "falling" and then lower
   # each falling brick until it is supported.
   (loop [z :range-to [2 max-lo-z]
-         :before (set falling (get-in by-z [:lo z] @{}))
-         :before (put-in by-z [:lo z] nil)
+         :before (do
+                   (set falling (get-in by-z [:lo z] @{}))
+                   (put-in by-z [:lo z] nil))
          i :iterate (first (keys falling))
          :before (put-in by-z [:hi (get-in bricks [i :hi 2]) i] nil)
          :let [this (lower (in bricks i))]
-         :after (when (falling i) (put bricks i this))
-         :after (when (on-ground? this) (put falling i nil))
-         :after (when (not (falling i)) (update-indices i))
+         :after (do
+                  (when (falling i) (put bricks i this) )
+                  (when (on-ground? this) (put falling i nil) )
+                  (when (not (falling i)) (update-indices i) ))
          j :keys (get-in by-z [:hi (get-in this [:lo 2])] @{})
          :when (overlaps? this (in bricks j))]
     (update supports j |(array/push (or $ @[]) i))
@@ -108,4 +110,4 @@
             1))
 
 (judge/test (part1 test-input) 5)
-(judge/test (part1 real-input) 511)  # Still wrong!
+(judge/test (part1 real-input) 477)
