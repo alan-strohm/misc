@@ -1,5 +1,7 @@
 (import judge)
 
+(use ./util)
+
 (def test-input `
 3   4
 4   3
@@ -27,6 +29,15 @@
   (def lists (map sort (read str)))
   (sum (map dist ;lists)))
 
-
 (judge/test (part1 test-input) 11)
 (judge/test (part1 real-input) 2430334)
+
+(defn part2 [str]
+  (def [left right] (read str))
+  (def right-frequencies (frequencies right))
+  (sum-loop [num :in left
+             :let [freq (in right-frequencies num 0)]]
+            (* num freq)))
+
+(judge/test (part2 test-input) 31)
+(judge/test (part2 real-input) 28786472)
