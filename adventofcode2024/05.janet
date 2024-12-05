@@ -81,13 +81,20 @@
             (errorf "%n" [x y]))
     (get-in is-before? [x y])))
 
-(defn part1 [str]
+(defn solve [want-sorted str]
   (def [orders updates] (read str))
   (def cmp-fn (make-cmp orders))
   (sum-loop [u :in updates
              :let [u-sorted (sorted u cmp-fn)]
-             :when (deep= u u-sorted)]
-            (in u (div (length u) 2))))
+             :when (= (deep= u u-sorted) want-sorted)]
+            (in u-sorted (div (length u) 2))))
+
+(def part1 (partial solve true))
 
 (judge/test (part1 test-input) 143)
 (judge/test (part1 real-input) 5747)
+
+(def part2 (partial solve false))
+
+(judge/test (part2 test-input) 123)
+(judge/test (part2 real-input) 5502)
