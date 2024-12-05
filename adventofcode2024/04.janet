@@ -16,48 +16,43 @@ SAXAMASAAA
 MAMMMXMMMM
 MXMXAXMASX`)
 
-(defn lookup-word [grid p dir]
-  (var cursor p)
+(defn read-cells [grid p dir num]
   (tuple/slice
-    (seq [:repeat 3]
-      (set cursor (p2+ cursor dir))
+    (seq [:before (var cursor p) :repeat num :after (p2+= cursor dir)]
       (grid/get grid cursor))))
 
-(judge/test (lookup-word (grid/parse test-input) [0 0] dir-SE) ["S" "X" "M"])
-(judge/test (lookup-word (grid/parse test-input) [0 0] dir-W) [nil nil nil])
+(judge/test (read-cells (grid/parse test-input) [0 0] dir-SE 3) ["M" "S" "X"])
+(judge/test (read-cells (grid/parse test-input) [0 0] dir-W 3) ["M" nil nil])
 
-(defn num-found [grid p]
-  (sum-loop [dir :in dirs8
-             :when (= ["M" "A" "S"] (lookup-word grid p dir))]
-            1))
+(defn is-mas? [grid p dir] (= ["M" "A" "S"] (read-cells grid p dir 3)))
 
 (defn part1 [str]
   (def grid (grid/parse str))
   (sum-loop [[p v] :in (grid/pairs grid)
-             :when (= v "X")]
-            (num-found grid p)))
+             :when (= v "X")
+             dir :in dirs8
+             :when (is-mas? grid (p2+ p dir) dir)]
+            1))
 
 (judge/test (part1 test-input) 18)
 (judge/test (part1 real-input) 2593)
 
-(defn is-ms? [grid p dir1 dir2]
-  (def [v1 v2] (map |(grid/get grid (p2+ p $)) [dir1 dir2]))
-  (or
-    (and (= v1 "M") (= v2 "S"))
-    (and (= v1 "S") (= v2 "M"))))
-
-(defn is-mas? [grid p]
+(defn is-x-mas? [grid p]
   (and
-    (is-ms? grid p dir-NE dir-SW)
-    (is-ms? grid p dir-SE dir-NW)))
+    (= "A" (grid/get grid p))
+    (or
+      (is-mas? grid (p2+ p dir-NE) dir-SW)
+      (is-mas? grid (p2+ p dir-SW) dir-NE))
+    (or
+      (is-mas? grid (p2+ p dir-NW) dir-SE)
+      (is-mas? grid (p2+ p dir-SE) dir-NW))))
 
-(judge/test (is-mas? (grid/parse test-input) [2 1]) true)
+(judge/test (is-x-mas? (grid/parse test-input) [2 1]) true)
 
 (defn part2 [str]
   (def grid (grid/parse str))
   (sum-loop [[p v] :in (grid/pairs grid)
-             :when (and (= v "A")
-                        (is-mas? grid p))]
+             :when (is-x-mas? grid p)]
             1))
 
 (judge/test (part2 test-input) 9)
