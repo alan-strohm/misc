@@ -1,3 +1,5 @@
+(import judge)
+
 (defmacro fold-loop [init f dsl & body]
   (with-syms [$result $init $f]
     ~(let [,$init ,init ,$f ,f]
@@ -37,3 +39,14 @@
 
 (def dirs8 [[0 -1] [1 -1] [1 0] [1 1] [0 1] [-1 1] [-1 0] [-1 -1]])
 (def [dir-N dir-NE dir-E dir-SE dir-S dir-SW dir-W dir-NW] dirs8)
+
+(defn cons [head rest]
+  [head rest])
+
+(defn make-list [arrtup]
+  (match arrtup
+    nil nil
+    [head & rest] (cons head (make-list rest))
+    []))
+
+(judge/test (make-list [1 2]) [1 [2 []]])
