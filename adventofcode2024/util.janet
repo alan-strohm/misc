@@ -23,11 +23,37 @@
   (assert content "invalid grid: nil content")
   (get-in content [y x]))
 
+(defn grid/contains [{:dims [max-x max-y]} [x y]]
+  (and
+    (< x max-x)
+    (>= x 0)
+    (< y max-y)
+    (>= y 0)))
+
+(defn- grid/check-oob [grid p]
+  (assert (grid/contains grid p)
+          (string/format "oob point: %n dims: %n" p (grid :dims))))
+
+(defn grid/set [grid p v]
+  (compwhen (dyn *debug*)
+    (grid/check-oob grid p)
+    (assert (string? v) (string/format "invalid value: %n" v)))
+  (let [{:content content} grid
+        [x y] p]
+    (put-in content [y x] v)))
+
 (defn grid/pairs [{:content content}]
   (assert content "invalid grid: nil content")
   (generate [[y line] :pairs content
              [x val] :pairs line]
     [[x y] val]))
+
+(defn grid/map [{:content content :dims dims} f]
+  {:content (map |(map f $) content) :dims dims})
+
+(defn grid/format [{:content content}]
+  (assert content "invalid grid: nil content")
+  (string/join (map |(string/join $ "") content) "\n"))
 
 (defn p2+ [[x1 y1 & rest1] [x2 y2 & rest2]]
   (compwhen (dyn *debug*)
