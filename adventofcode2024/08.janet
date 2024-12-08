@@ -27,39 +27,32 @@
     (update ants v |(array/push (or $ @[]) p)))
   [ants grid])
 
-(defn node [a b] (p2+ b (p2- b a)))
+(varfn nodes [grid a b]
+  (def n (p2+ b (p2- b a)))
+  (if (and (not= a b)
+           (grid/contains grid n))
+    [n]
+    []))
 
-(judge/test (node [4 3] [5 5]) [6 7])
-(judge/test (node [5 5] [4 3]) [3 1])
-
-(defn part1 [str]
-  (def [by-ant grid] (read str))
-  (def nodes @{})
-  (loop [[_ ants] :pairs by-ant
-         a :in ants
-         b :in ants
-         :let [n (node a b)]
-         :when (and
-                 (not= a b)
-                 (grid/contains grid n))]
-    (put nodes n true))
-(length nodes))
-
-(judge/test (part1 test-input) 14)
-(judge/test (part1 real-input) 369)
-
-(defn part2 [str]
+(defn run [str]
   (def [by-ant grid] (read str))
   (length
     (tabseq [[_ ants] :pairs by-ant
              a :in ants
              b :in ants
-             :let [dist (p2- b a)]
-             :when (not= a b)
-             :before (var cursor b)
-             _ :iterate (grid/contains grid cursor)
-             :after (p2+= cursor dist)]
-            cursor true)))
+             n :in (nodes grid a b)]
+            n true)))
 
-(judge/test (part2 test-input) 34)
-(judge/test (part2 real-input) 1169)
+(judge/test (run test-input) 14)
+(judge/test (run real-input) 369)
+
+(varfn nodes [grid a b]
+  (seq [:when (not= a b)
+        :let [dist (p2- b a)]
+        :before (var cursor b)
+        _ :iterate (grid/contains grid cursor)
+        :after (p2+= cursor dist)]
+    cursor))
+
+(judge/test (run test-input) 34)
+(judge/test (run real-input) 1169)
