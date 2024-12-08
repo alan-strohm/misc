@@ -47,3 +47,19 @@
 
 (judge/test (part1 test-input) 14)
 (judge/test (part1 real-input) 369)
+
+(defn part2 [str]
+  (def [by-ant grid] (read str))
+  (length
+    (tabseq [[_ ants] :pairs by-ant
+             a :in ants
+             b :in ants
+             :let [dist (p2- b a)]
+             :when (not= a b)
+             :before (var cursor b)
+             _ :iterate (grid/contains grid cursor)
+             :after (p2+= cursor dist)]
+            cursor true)))
+
+(judge/test (part2 test-input) 34)
+(judge/test (part2 real-input) 1169)
