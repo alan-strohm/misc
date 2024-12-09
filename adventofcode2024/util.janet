@@ -61,6 +61,12 @@
     (assert (empty? rest2) "second argument has %d elements" (+ 2 (length rest1))))
   [(+ x1 x2) (+ y1 y2)])
 
+(defn p2- [[x1 y1 & rest1] [x2 y2 & rest2]]
+  (compwhen (dyn *debug*)
+    (assert (empty? rest1) "first argument has %d elements" (+ 2 (length rest1)))
+    (assert (empty? rest2) "second argument has %d elements" (+ 2 (length rest1))))
+  [(- x1 x2) (- y1 y2)])
+
 (defmacro p2+= [v1 v2] ~(set ,v1 (,p2+ ,v1 ,v2)))
 
 (def dirs8 [[0 -1] [1 -1] [1 0] [1 1] [0 1] [-1 1] [-1 0] [-1 -1]])
