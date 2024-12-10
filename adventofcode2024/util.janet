@@ -71,6 +71,7 @@
 
 (def dirs8 [[0 -1] [1 -1] [1 0] [1 1] [0 1] [-1 1] [-1 0] [-1 -1]])
 (def [dir-N dir-NE dir-E dir-SE dir-S dir-SW dir-W dir-NW] dirs8)
+(def dirs4 [dir-N dir-E dir-S dir-W])
 
 (defn cons [head rest]
   [head rest])
