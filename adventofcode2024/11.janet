@@ -26,13 +26,34 @@
 (judge/test (blink ["0" "1" "10" "99" "999"]) @["1" "2024" "1" "0" "9" "9" "2021976"])
 (judge/test (blink ["1000"]) @["10" "0"])
 
-(defn part1 [str num]
+(defn run [str num]
   (var stones (read str))
-  (loop [:repeat num] (set stones (blink stones)))
+  (loop [:before (var i 0) :repeat num :after (++ i)] (pp i) (set stones (blink stones)))
   (length stones))
   #stones)
 
+(def memo @{})
 
-(judge/test (part1 test-input 2) 4)
-(judge/test (part1 test-input 25) 55312)
-(judge/test (part1 real-input 25) 189092)
+(defn blink-n [stone n]
+  (if-let [res (memo [stone n])]
+    (break res))
+
+  (when (= n 0)
+    (break 1))
+
+  (def next-stones
+    (cond
+      (= "0" stone) ["1"]
+      (even? (length stone)) (split stone)
+      [(-> stone scan-number (* 2024) string)]))
+  (def res (sum (map |(blink-n $ (dec n)) next-stones)))
+  (put memo [stone n] res)
+  res)
+
+(defn run [str num]
+  (sum (map |(blink-n $ num) (read str))))
+
+(judge/test (run test-input 2) 4)
+(judge/test (run test-input 25) 55312)
+(judge/test (run real-input 25) 189092)
+(judge/test (run real-input 75) 224869647102559)
