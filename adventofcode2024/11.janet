@@ -14,31 +14,12 @@
        [(string/slice stone 0 mid)
         (string/slice stone mid)]))
 
-(defn blink [stones]
-  (var result @[])
-  (loop [stone :in stones]
-    (cond
-      (= "0" stone) (array/push result "1")
-      (even? (length stone)) (array/push result ;(split stone))
-      (array/push result (-> stone scan-number (* 2024) string))))
-  result)
+(judge/test (split "1000") @["10" "0"])
 
-(judge/test (blink ["0" "1" "10" "99" "999"]) @["1" "2024" "1" "0" "9" "9" "2021976"])
-(judge/test (blink ["1000"]) @["10" "0"])
+(var blink-many nil)
 
-(defn run [str num]
-  (var stones (read str))
-  (loop [:before (var i 0) :repeat num :after (++ i)] (pp i) (set stones (blink stones)))
-  (length stones))
-  #stones)
-
-(def memo @{})
-
-(defn blink-n [stone n]
-  (if-let [res (memo [stone n])]
-    (break res))
-
-  (when (= n 0)
+(defmemo blink-one [stone times]
+  (when (= times 0)
     (break 1))
 
   (def next-stones
@@ -46,14 +27,14 @@
       (= "0" stone) ["1"]
       (even? (length stone)) (split stone)
       [(-> stone scan-number (* 2024) string)]))
-  (def res (sum (map |(blink-n $ (dec n)) next-stones)))
-  (put memo [stone n] res)
-  res)
+  (blink-many next-stones (dec times)))
+
+(varfn blink-many [stones times]
+  (sum (map |(blink-one $ times) stones)))
 
 (defn run [str num]
-  (sum (map |(blink-n $ num) (read str))))
+  (blink-many (read str) num))
 
-(judge/test (run test-input 2) 4)
 (judge/test (run test-input 25) 55312)
 (judge/test (run real-input 25) 189092)
 (judge/test (run real-input 75) 224869647102559)
