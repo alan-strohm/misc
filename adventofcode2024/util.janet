@@ -11,6 +11,20 @@
 (defmacro sum-loop [dsl & body]
   ~(as-macro ,fold-loop 0 + ,dsl ,;body))
 
+(defmacro defmemo [name args & body]
+  (with-syms [$f $args $memo $result]
+    ~(def ,name
+       (do
+         (var ,name nil)
+         (defn ,$f ,args ,;body)
+         (def ,$memo @{})
+         (set ,name (fn [& ,$args]
+                     (when-let [,$result (,$memo ,$args)]
+                       (break ,$result))
+                     (def ,$result (apply ,$f ,$args))
+                     (put ,$memo ,$args ,$result)
+                     ,$result))))))
+
 (defn grid/parse [str]
   (def content (->> str
                     string/trim
