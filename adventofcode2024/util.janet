@@ -98,3 +98,22 @@
     []))
 
 (judge/test (make-list [1 2]) [1 [2 []]])
+
+(defn det2d "Compute the determinate of a 2x2 matrix"
+  [[[a c] [b d]]] (- (* a d) (* b c)))
+
+(judge/test (det2d [[3 1] [7 -4]]) -19)
+
+# https://en.wikipedia.org/wiki/Cramer%27s_rule
+(defn solve2d
+  "Return x such that Ax = y"
+  [A y]
+  (let [detA (det2d A)
+        x0 (/ (det2d [y (in A 1)]) detA)
+        x1 (/ (det2d [(in A 0) y]) detA)]
+    (if (= 0 detA)
+      nil
+      [x0 x1])))
+
+(judge/test (solve2d [[-2 1] [1 1]] [-1 6]) [2.3333333333333335 3.6666666666666665])
+
