@@ -34,18 +34,25 @@ Prize: X=18641, Y=10279
     @[@[@[17 86] @[84 37]] @[7870 6450]]
     @[@[@[69 23] @[27 71]] @[18641 10279]]])
 
-# 94A + 22B = 8400
-# 34A + 67B = 5400
-
 (judge/test (solve2d [[94 34] [22 67]] [8400 5400]) [80 40])
 (judge/test (solve2d [[69 27] [23 71]] [18641 10279]) [254.11266947171575 48.140252454417954])
 (judge/test (mod 2 1) 0)
 
-(defn part1 [str]
-  (sum-loop [[A y] :in (read str)
+(defn run [machines]
+  (sum-loop [[A y] :in machines
              :let [[a b] (solve2d A y)]
              :when (all |(zero? (mod $ 1)) [a b])]
             (+ (* a 3) b)))
 
+(defn part1 [str] (run (read str)))
+
 (judge/test (part1 test-input) 480)
 (judge/test (part1 real-input) 36571)
+
+(defn part2 [str]
+  (def machines
+    (seq [[A y] :in (read str)] [A (map |(+ 10000000000000 $) y)]))
+  (run machines))
+
+(judge/test (part2 test-input) 875318608908)
+(judge/test (part2 real-input) 85527711500010)
