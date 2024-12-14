@@ -83,6 +83,9 @@
 
 (defmacro p2+= [v1 v2] ~(set ,v1 (,p2+ ,v1 ,v2)))
 
+(defn vec*n [vec n] (tuple/slice (map |(* n $) vec)))
+(judge/test (vec*n [1 2] -1) [-1 -2])
+
 (def dirs8 [[0 -1] [1 -1] [1 0] [1 1] [0 1] [-1 1] [-1 0] [-1 -1]])
 (def [dir-N dir-NE dir-E dir-SE dir-S dir-SW dir-W dir-NW] dirs8)
 (def dirs4 [dir-N dir-E dir-S dir-W])
