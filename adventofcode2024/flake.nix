@@ -26,12 +26,13 @@
       withJanetPackages = with pkgs.janetPackages; [ judge ];
     };
     myEnv = pkgs.mkJanetTree {
-      name = "adventofcode2023";
-      withJanetPackages = with pkgs.janetPackages; [ heap judge spork ];
+      name = "adventofcode2024";
+      withJanetPackages = with pkgs.janetPackages; [ heap judge spork jaylib ];
     };
   in rec {
     devShells.default = pkgs.mkShell {
       packages = with pkgs; [ myEnv ];
+      LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ libGL ];
     };
   });
 } 
