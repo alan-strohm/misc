@@ -69,6 +69,10 @@
   (assert content "invalid grid: nil content")
   (string/join (map |(string/join $ "") content) "\n"))
 
+(defn grid/find [grid f]
+  (some (fn [[p v]] (if (f v) p))
+        (grid/pairs grid)))
+
 (defn p2+ [[x1 y1 & rest1] [x2 y2 & rest2]]
   (compwhen (dyn *debug*)
     (assert (empty? rest1) "first argument has %d elements" (+ 2 (length rest1)))
@@ -90,6 +94,7 @@
 (def [dir-N dir-NE dir-E dir-SE dir-S dir-SW dir-W dir-NW] dirs8)
 (def dirs4 [dir-N dir-E dir-S dir-W])
 (def format-dir {dir-N "^" dir-E ">" dir-S "v" dir-W "<"})
+(def parse-dir (tabseq [[d s] :pairs format-dir] s d))
 
 (defn cons [head rest]
   [head rest])
