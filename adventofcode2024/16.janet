@@ -49,33 +49,57 @@
     @[[[[2 13] [1 0]] 1]
       [[[1 13] [0 -1]] 1000]]))
 
-(defn shortest-path [grid start end]
+(defn analyze [grid start end]
   (def start [start dir-E])
   (def in-shore @{start true})
   (def cost @{start 0})
+  (def prevs @{})
   (def shore (heap/new |(cmp (cost $0) (cost $1))))
   (heap/push shore start)
 
-  (var result nil)
+  (var lowest-cost nil)
   
   (loop [cur :iterate (heap/pop-min shore nil)]
     (def cur-cost (cost cur))
     (when (= end (first cur))
-      (set result cur-cost)
-      (break))
+      (set lowest-cost (min lowest-cost cur-cost)))
     (put in-shore cur nil)
     
     (loop [[neighbor neighbor-cost] :in (neighbors grid cur)
            :when (or (not (cost neighbor)) (in-shore neighbor))]
       (def cost-through-cur (+ cur-cost neighbor-cost))
-      (update cost neighbor |(min (or $ math/int-max) cost-through-cur))
+      (def lowest-so-far (or (cost neighbor) math/int-max))
+      (put cost neighbor
+           (min lowest-so-far cost-through-cur))
+      (when (< cost-through-cur lowest-so-far)
+        (put prevs neighbor @[cur]))
+      (when (= cost-through-cur lowest-so-far)
+        (update prevs neighbor |(array/push $ cur)))
       (when (not (in-shore neighbor))
         (put in-shore neighbor true)
         (heap/push shore neighbor))))
-  result)
+
+  (def in-lowest @{end true
+                   (first start) true})
+  (defn fill-in-lowest [node]
+    (loop [[pos dir] :in (or (prevs node) @[])]
+      (put in-lowest pos true)
+      (fill-in-lowest [pos dir])))
+  (loop [d :in dirs4
+         :when (= lowest-cost (cost [end d]))]
+    (fill-in-lowest [end d]))
+
+  [lowest-cost (length in-lowest)])
 
 (defn part1 [str]
-  (shortest-path ;(read str)))
+  (first (analyze ;(read str))))
 
 (test (part1 test-input) 7036)
 (test (part1 real-input) 130536)
+
+(defn part2 [str]
+  (last (analyze ;(read str))))
+
+(test (part2 test-input) 45)
+(test (part2 real-input) 1024)
+
