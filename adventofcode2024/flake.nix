@@ -31,7 +31,7 @@
     };
   in rec {
     devShells.default = pkgs.mkShell {
-      packages = with pkgs; [ myEnv ];
+      packages = with pkgs; [ myEnv entr ];
       LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ libGL ];
     };
   });
