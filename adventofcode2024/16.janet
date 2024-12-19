@@ -49,8 +49,8 @@
     @[[[[2 13] [1 0]] 1]
       [[[1 13] [0 -1]] 1000]]))
 
-(defn analyze [grid start end]
-  (def start [start dir-E])
+(defn lowest-costs [grid start-pos end-pos]
+  (def start [start-pos dir-E])
   (def in-shore @{start true})
   (def cost @{start 0})
   (def prevs @{})
@@ -58,48 +58,46 @@
   (heap/push shore start)
 
   (var lowest-cost nil)
-  
+
   (loop [cur :iterate (heap/pop-min shore nil)]
     (def cur-cost (cost cur))
-    (when (= end (first cur))
-      (set lowest-cost (min lowest-cost cur-cost)))
+    (when (= end-pos (first cur))
+      (if (and lowest-cost (> cur-cost lowest-cost))
+        (break)
+        (set lowest-cost cur-cost)))
     (put in-shore cur nil)
     
     (loop [[neighbor neighbor-cost] :in (neighbors grid cur)
            :when (or (not (cost neighbor)) (in-shore neighbor))]
       (def cost-through-cur (+ cur-cost neighbor-cost))
       (def lowest-so-far (or (cost neighbor) math/int-max))
-      (put cost neighbor
-           (min lowest-so-far cost-through-cur))
       (when (< cost-through-cur lowest-so-far)
+        (put cost neighbor cost-through-cur)
         (put prevs neighbor @[cur]))
       (when (= cost-through-cur lowest-so-far)
         (update prevs neighbor |(array/push $ cur)))
       (when (not (in-shore neighbor))
         (put in-shore neighbor true)
         (heap/push shore neighbor))))
-
-  (def in-lowest @{end true
-                   (first start) true})
-  (defn fill-in-lowest [node]
-    (loop [[pos dir] :in (or (prevs node) @[])]
-      (put in-lowest pos true)
-      (fill-in-lowest [pos dir])))
-  (loop [d :in dirs4
-         :when (= lowest-cost (cost [end d]))]
-    (fill-in-lowest [end d]))
-
-  [lowest-cost (length in-lowest)])
+  [lowest-cost prevs])
 
 (defn part1 [str]
-  (first (analyze ;(read str))))
+  (first (lowest-costs ;(read str))))
 
 (test (part1 test-input) 7036)
 (test (part1 real-input) 130536)
 
 (defn part2 [str]
-  (last (analyze ;(read str))))
+  (def [grid start end] (read str))
+  (def [_ prevs] (lowest-costs grid start end))
+  (def in-lowest @{end true})
+  (defn fill-in-lowest [node]
+    (loop [[pos dir] :in (or (prevs node) @[])]
+      (put in-lowest pos true)
+      (fill-in-lowest [pos dir])))
+  (loop [d :in dirs4] (fill-in-lowest [end d]))
+
+  (length in-lowest))
 
 (test (part2 test-input) 45)
 (test (part2 real-input) 1024)
-
