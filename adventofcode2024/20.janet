@@ -65,37 +65,6 @@
   `)
   (test (dists end) 84))
 
-(defn cheats [grid pos]
-  (keys
-    (tabseq [d1 :in dirs4
-             :let [wall (p2+ pos d1)]
-             :when (= "#" (grid/get grid wall))
-             d2 :in dirs4
-             :let [space (p2+ wall d2)]
-             :when (and (not= space pos)
-                        (= "." (grid/get grid space)))]
-            space true)))
-
-(deftest cheats
-  (def [grid] (read test-input))
-  (test (cheats grid [1 3]) @[[3 3]])
-  (test (cheats grid [3 2])
-    @[[2 1] [5 2] [4 3] [1 2]])
-  )
-
-(defn part1 [str savings-wanted]
-  (def [grid start end dists] (read str))
-  (sum-loop [[p before] :pairs dists
-             cheat :in (cheats grid p)
-             :let [after (dists cheat)
-                   saved (- after before 2)]
-             :when (>= saved savings-wanted)]
-            1))
-
-(test (part1 test-input 64) 1)
-(test (part1 test-input 20) 5)
-(test (part1 real-input 100) 1530)
-
 (defn diamond [pos n]
   (def rot90cw {dir-N dir-E dir-E dir-S dir-S dir-W dir-W dir-N})
   (seq [d1 :in dirs4
@@ -133,24 +102,32 @@
     ###############
   `))
 
-(defn cheats [grid pos]
-  (seq [p :in (diamond pos 20)
+(defn cheats [grid pos num]
+  (seq [p :in (diamond pos num)
         :when (= "." (grid/get grid p))]
     p))
-
 
 (defn manhattan-dist [[x1 y1] [x2 y2]]
   (+ (math/abs (- x2 x1)) (math/abs (- y2 y1))))
 (test (manhattan-dist [0 0] [1 1]) 2)
 
-(defn part2 [str savings-wanted]
+(defn run [num-cheats str savings-wanted]
   (def [grid start end dists] (read str))
   (sum-loop [[p before] :pairs dists
-             cheat :in (cheats grid p)
+             cheat :in (cheats grid p num-cheats)
              :let [after (dists cheat)
                    saved (- after before (manhattan-dist p cheat))]
              :when (>= saved savings-wanted)]
             1))
 
+(def part1 (partial run 2))
+
+(test (part1 test-input 64) 1)
+(test (part1 test-input 20) 5)
+(test (part1 real-input 100) 1530)
+
+(def part2 (partial run 20))
+
 (test (part2 test-input 74) 7)
-(test (part2 real-input 100) 1033983)
+# 6s
+#(test (part2 real-input 100) 1033983)
