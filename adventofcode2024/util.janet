@@ -125,3 +125,14 @@
 
 (judge/test (solve2d [[-2 1] [1 1]] [-1 6]) [2.3333333333333335 3.6666666666666665])
 
+# Janet's xor only works up to 32 bit integers.
+(defn xor [a b]
+  (def mid 0x10000000)
+  (def lower (bxor (mod a mid) (mod b mid)))
+  (def upper (bxor (div a mid) (div b mid)))
+  (+ (* upper mid) lower))
+
+(def- hex (partial string/format "%x"))
+(judge/test (xor (math/exp2 (* 3 15)) (math/exp2 (* 3 15))) 0)
+(judge/test (hex (xor 0x1020304050 0x8000000000)) "9020304050")
+

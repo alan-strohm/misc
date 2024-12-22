@@ -13,16 +13,6 @@
 (test (get-combo @{"C" :c} 6) :c)
 (test-error (get-combo @{} :a) "invalid operand: :a")
 
-(def mid 0x10000000)
-(defn xor [a b]
-  (def lower (bxor (mod a mid) (mod b mid)))
-  (def upper (bxor (div a mid) (div b mid)))
-  (+ (* upper mid) lower))
-
-(def hex (partial string/format "%x"))
-(test (xor (math/exp2 (* 3 15)) (math/exp2 (* 3 15))) 0)
-(test (hex (xor 0x1020304050 0x8000000000)) "9020304050")
-
 (defn x-dv [output-reg regs operand]
   (def numerator (in regs "A"))
   (def denominator (math/exp2 (get-combo regs operand)))
