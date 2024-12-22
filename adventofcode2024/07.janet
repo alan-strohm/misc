@@ -68,4 +68,4 @@
 
 (judge/test (part2 test-input) 11387)
 # 6.5s
-# (judge/test (part2 real-input) 264184041398847)
+(judge/test (part2 real-input) 264184041398847)

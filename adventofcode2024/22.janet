@@ -80,16 +80,20 @@
 `)
 
 (defn part2 [str]
-  (print (os/strftime "%X"))
-  (def sales
-    (seq [start :in (read str)] (possible-sales start)))
-  (print (os/strftime "%X"))
   (def totals @{})
-  (loop [s :in sales [sig v] :pairs s]
-    (update totals sig |(+ (or $ 0) v)))
-  (print (os/strftime "%X"))
+  (loop [start :in (read str)
+         :before (var seen @{})
+         :let [prices (prices start 2000)
+               changes (get-changes prices)]
+         i :range [3 (length changes)]
+         :let [sig [(changes (- i 3)) (changes (- i 2))
+                    (changes (- i 1)) (changes i)]]
+         :unless (seen sig)]
+    (put seen sig true)
+    (def price (prices (+ i 1)))
+    (update totals sig |(+ (or $ 0) price)))
   (max-of totals))
 
 (test (part2 test-input) 23)
-# 12s
+# 7.4s
 (test (part2 real-input) 2250)

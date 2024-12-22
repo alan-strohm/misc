@@ -130,4 +130,4 @@
 
 (test (part2 test-input 74) 7)
 # 6s
-#(test (part2 real-input 100) 1033983)
+(test (part2 real-input 100) 1033983)
