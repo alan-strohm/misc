@@ -85,18 +85,11 @@ tgd XOR rvg -> z12
 tnw OR pbm -> gnj
 `)
 
-(defn part1 [str]
-  (def [states gates] (read str))
-  (def by-input @{})
-  (loop [g :in gates
-         :let [[in1 _ in2] g]
-         input :in [in1 in2]]
-    (update by-input input |(array/push (or $ @[]) g)))
-
+(defn run [states gates] 
   (var result 0)
   (defn set-digit [wire]
     (when (= "1" (in states wire))
-      (def place (-> wire (string/triml "z") scan-number))
+      (def place (-> wire (string/slice 1) scan-number))
       (+= result (math/exp2 place))))
 
   (def to-process (tabseq [gate :in gates] gate true))
@@ -116,6 +109,59 @@ tnw OR pbm -> gnj
       (set-digit out-id)))
   result)
 
+(defn part1 [str] (run ;(read str)))
+
 (test (part1 test-input1) 4)
 (test (part1 test-input2) 2024)
 (test (part1 real-input) 49430469426918)
+
+(defn swap-outputs [swaps gates]
+  (seq [g :in gates]
+    (if-let [new-out (in swaps (in g 3))]
+      (put g 3 new-out))
+    g))
+
+(defn part2 [str]
+  (def [inits gates] (read str))
+  (def inputs @{})
+  (loop [[k v] :pairs inits]
+    (when (= "1" v)
+      (def place (-> k (string/slice 1) scan-number))
+      (update inputs (string/slice k 0 1) |(+ (or $ 0) (math/exp2 place)))))
+  (def {"x" x "y" y} inputs)
+  (def swaps
+    {"qnw" "qff" "qff" "qnw"
+     "qqp" "z23" "z23" "qqp"
+     "z16" "pbv" "pbv" "z16"
+     "z36" "fbq" "fbq" "z36"
+     })
+  (printf "want: %o, got %o"
+          (+ x y)
+          (run (table/clone inits) (swap-outputs swaps gates)))
+  (def num-inputs (/ (length inits) 2))
+
+  (loop [:before (var states @{})
+         i :range [0 num-inputs]
+         prefix :in ["x" "y"]
+         :let [target-key (string prefix (string/format "%02d" i))]
+         :after (let [result (run states gates)]
+                  (set states @{})
+                  (when (not= result (math/exp2 i))
+                    (printf "%s got %x" target-key result)))
+         k :keys inits]
+    (put states k (if (= k target-key) "1" "0"))))
+
+(def fixed-input (slurp "./input/24-fixed.txt"))
+
+# dfn,fbq,qff,qnw,qqp,z16,z23,z36
+# dfn,fbq,qff,qnw,qqp,z16,z23,z36
+# z11 = (XOR (XOR x11 y11) (OR fjh thp))
+# z23 = (OR wdr jcd)
+# cts XOR bcd -> qqp
+# z36 = (AND jdd rbm)
+#y36 XOR x36 -> rbm
+#jdd XOR rbm -> fbq
+(test-stdout (part2 real-input) `
+  want: 1320235604443346, got 1320235604443346
+`)
+(test (part1 fixed-input) 49499197359846)
